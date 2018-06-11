@@ -26,8 +26,11 @@ import java.util.Map;
 public class FcoinUtils {
     
     private static final Logger logger = LoggerFactory.getLogger(FcoinUtils.class);
-    private static final String app_key = "42ffbdf4df994f1a8a181350e5b24541";
-    private static final String app_secret = "7ae3e81c0e8e47a4b604eeeca39be6ec";
+    //private static final String app_key = "42ffbdf4df994f1a8a181350e5b24541";
+    //private static final String app_secret = "7ae3e81c0e8e47a4b604eeeca39be6ec";
+
+    private static final String app_key = "c3d63dbd27714ca8a0887c938c4e8efe";
+    private static final String app_secret = "b78eadff63b1414fbd05a449e383c92d";
     
     public static String getSign(String data, String secret) throws Exception {
         
@@ -76,7 +79,9 @@ public class FcoinUtils {
         params.put("side", side);
         params.put("symbol", symbol);
         params.put("type", type);
-        HttpEntity<String> requestEntity = new HttpEntity<String>(JSON.toJSONString(params), headers);
+        String param = JSON.toJSONString(params);
+        logger.info(param);
+        HttpEntity<String> requestEntity = new HttpEntity<String>(param, headers);
         RestTemplate client = new RestTemplate();
         client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
         ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
@@ -104,7 +109,9 @@ public class FcoinUtils {
         params.put("side", side);
         params.put("symbol", symbol);
         params.put("type", type);
-        HttpEntity<String> requestEntity = new HttpEntity<String>(JSON.toJSONString(params), headers);
+        String param = JSON.toJSONString(params);
+        logger.info(param);
+        HttpEntity<String> requestEntity = new HttpEntity<String>(param, headers);
         RestTemplate client = new RestTemplate();
         client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
         ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
@@ -173,9 +180,9 @@ public class FcoinUtils {
                 Thread.sleep(300);
             }
             //买单 卖单
-
-            buy("ftusdt", "market", String.valueOf(50/marketPrice));
-            sell("ftusdt", "market", String.valueOf(50/marketPrice));
+            BigDecimal amount = new BigDecimal(50/marketPrice).setScale(2, BigDecimal.ROUND_HALF_UP);
+            buy("ftusdt", "market", amount.toString());
+            sell("ftusdt", "market", amount.toString());
             
             Thread.sleep(1000);
         }

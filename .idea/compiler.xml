@@ -9,5 +9,8 @@
         <module name="fcoin" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="fcoin" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>
