@@ -162,7 +162,8 @@ public class FcoinUtils {
             double ft = balances.get("ft");
             double usdt = balances.get("usdt");
             
-            if(usdt<51&&ft<51/marketPrice){
+            if(usdt<51&&ft<(51/marketPrice)){
+                logger.info("跳出循环，ustd:{}, marketPrice:{}",usdt, marketPrice);
                 break;
             }
             //ft:usdt=1:0.6
