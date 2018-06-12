@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class FcoinUtils {
-    
+
     private static final RetryTemplate retryTemplate = FcoinRetry.getRetryTemplate();
 
     private static final Logger logger = LoggerFactory.getLogger(FcoinUtils.class);
@@ -50,7 +50,7 @@ public class FcoinUtils {
         Long timeStamp = System.currentTimeMillis();
         MultiValueMap<String, String> headers = new HttpHeaders();
         headers.add("FC-ACCESS-KEY", app_key);
-        headers.add("FC-ACCESS-SIGNATURE", getSign("GEThttps://api.fcoin.com/v2/accounts/balance" + timeStamp, app_secret));
+        headers.add("FC-ACCESS-SIGNATURE", getSign("GET" + url + timeStamp, app_secret));
         headers.add("FC-ACCESS-TIMESTAMP", timeStamp.toString());
 
         HttpEntity requestEntity = new HttpEntity<>(headers);
@@ -126,7 +126,7 @@ public class FcoinUtils {
         Long timeStamp = System.currentTimeMillis();
         MultiValueMap<String, String> headers = new HttpHeaders();
         headers.add("FC-ACCESS-KEY", app_key);
-        headers.add("FC-ACCESS-SIGNATURE", getSign("GEThttps://api.fcoin.com/v2/market/ticker/ftusdt" + timeStamp, app_secret));
+        headers.add("FC-ACCESS-SIGNATURE", getSign("GET" + url + timeStamp, app_secret));
         headers.add("FC-ACCESS-TIMESTAMP", timeStamp.toString());
 
         HttpEntity requestEntity = new HttpEntity<>(headers);
@@ -144,7 +144,7 @@ public class FcoinUtils {
         Long timeStamp = System.currentTimeMillis();
         MultiValueMap<String, String> headers = new HttpHeaders();
         headers.add("FC-ACCESS-KEY", app_key);
-        headers.add("FC-ACCESS-SIGNATURE", getSign("GEThttps://api.fcoin.com/v2/accounts/balance" + timeStamp, app_secret));
+        headers.add("FC-ACCESS-SIGNATURE", getSign("GET" + url + timeStamp, app_secret));
         headers.add("FC-ACCESS-TIMESTAMP", timeStamp.toString());
 
         HttpEntity requestEntity = new HttpEntity<>(headers);
@@ -163,14 +163,14 @@ public class FcoinUtils {
             //查询余额
             String balance = null;
             try {
-                balance = retryTemplate.execute(retryContext -> 
-                     getBalance()
+                balance = retryTemplate.execute(retryContext ->
+                        getBalance()
                 );
-            }catch (Exception e){
+            } catch (Exception e) {
                 logger.info("==========fcoinUtils.getBalance重试后还是异常============");
                 continue;
             }
-            
+
             Map<String, Double> balances = buildBalance(balance);
             double ft = balances.get("ft");
             double usdt = balances.get("usdt");
@@ -178,12 +178,12 @@ public class FcoinUtils {
 
             //usdt小于51并且ft的价值小于51
             if ((usdt < 51 && ft < (51 / marketPrice))
-                    ||(usdt<51&&Math.abs(ft * marketPrice - usdt)<10)
-                    ||(ft < (51 / marketPrice)&&Math.abs(ft * marketPrice - usdt)<10)) {
+                    || (usdt < 51 && Math.abs(ft * marketPrice - usdt) < 10)
+                    || (ft < (51 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 10)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
-            
+
             //ft:usdt=1:0.6
             if (ft * marketPrice > usdt && Math.abs(ft * marketPrice - usdt) > 10) {
                 double half = (ft * marketPrice + usdt) / 2;
@@ -195,10 +195,10 @@ public class FcoinUtils {
                         sell("ftusdt", "market", b.toString());
                         return null;
                     });
-                }catch (Exception e){
+                } catch (Exception e) {
                     logger.info("==========fcoinUtils.buy 重试后还是异常============");
                 }
-                
+
                 Thread.sleep(3000);
             } else if (ft * marketPrice < usdt && Math.abs(ft * marketPrice - usdt) > 10) {
                 double half = (ft * marketPrice + usdt) / 2;
@@ -210,10 +210,10 @@ public class FcoinUtils {
                         buy("ftusdt", "market", b.toString());
                         return null;
                     });
-                }catch (Exception e){
+                } catch (Exception e) {
                     logger.info("==========fcoinUtils.sell 重试后还是异常============");
                 }
-                
+
                 Thread.sleep(3000);
             }
             //买单 卖单
@@ -229,7 +229,7 @@ public class FcoinUtils {
                     buy("ftusdt", "market", ustdAmount.toString());
                     return null;
                 });
-            }catch (Exception e){
+            } catch (Exception e) {
                 logger.info("==========fcoinUtils.buy 重试后还是异常============");
             }
 
@@ -238,7 +238,7 @@ public class FcoinUtils {
                     sell("ftusdt", "market", ftAmount.toString());
                     return null;
                 });
-            }catch (Exception e){
+            } catch (Exception e) {
                 logger.info("==========fcoinUtils.sell 重试后还是异常============");
             }
             logger.info("=============================交易对结束=========================");
