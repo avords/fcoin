@@ -176,10 +176,14 @@ public class FcoinUtils {
             double usdt = balances.get("usdt");
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
-            if (usdt < 51 && ft < (51 / marketPrice)) {
+            //usdt小于51并且ft的价值小于51
+            if ((usdt < 51 && ft < (51 / marketPrice))
+                    ||(usdt<51&&Math.abs(ft * marketPrice - usdt)<10)
+                    ||(ft < (51 / marketPrice)&&Math.abs(ft * marketPrice - usdt)<10)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
+            
             //ft:usdt=1:0.6
             if (ft * marketPrice > usdt && Math.abs(ft * marketPrice - usdt) > 10) {
                 double half = (ft * marketPrice + usdt) / 2;
