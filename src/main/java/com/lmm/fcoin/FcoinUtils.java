@@ -199,7 +199,15 @@ public class FcoinUtils {
 
     //ftusdt
     public void ftusdt() throws Exception {
-        double marketPrice = getFtUsdtPrice();
+        double marketPrice;
+        try {
+            marketPrice = retryTemplate.execute(retryContext ->
+                    getFtUsdtPrice()
+            );
+        } catch (Exception e) {
+            logger.error("==========fcoinUtils.getFtUsdtPrice重试后还是异常============", e);
+            return;
+        }
         int tradeCount = 0;
         while (true) {
             //查询余额
@@ -295,7 +303,7 @@ public class FcoinUtils {
             double num = Math.min(half - ft * marketPrice, initUstd);
             BigDecimal b = getBigDecimal(num, 2);
             try {
-                initBuy(symbol, type, b);
+                buy(symbol, type, b);//此处不需要重试，让上次去判断余额后重新平衡
             } catch (Exception e) {
                 logger.error("初始化买有异常发生", e);
                 throw new Exception(e);
@@ -306,7 +314,7 @@ public class FcoinUtils {
             double num = Math.min(half - usdt, initUstd);
             BigDecimal b = getBigDecimal(num / marketPrice, 2);
             try {
-                initSell(symbol, type, b, marketPrice);
+                sell(symbol, type, b, marketPrice);//此处不需要重试，让上次去判断余额后重新平衡
             } catch (Exception e) {
                 logger.error("初始化卖有异常发生", e);
                 throw new Exception(e);
@@ -317,16 +325,6 @@ public class FcoinUtils {
 
         Thread.sleep(3000);
         return true;
-    }
-
-    private void initBuy(String symbol, String type, BigDecimal usdt) throws Exception {
-        //不需要重试
-        buy(symbol, type, usdt);
-    }
-
-    private void initSell(String symbol, String type, BigDecimal coin, double marketPrice) throws Exception {
-        //不需要重试
-        sell(symbol, type, coin, marketPrice);
     }
 
     private Map<String, Balance> buildBalance(String balance) {
