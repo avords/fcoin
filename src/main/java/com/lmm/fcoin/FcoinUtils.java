@@ -236,6 +236,7 @@ public class FcoinUtils {
             if (ftValue < initUstd || usdt < initUstd) {
                 //需要去初始化了
                 initBuyAndSell(ft, usdt, marketPrice, "ftusdt", "market");
+                //判断是否有冻结
             }
 
             //买单 卖单
