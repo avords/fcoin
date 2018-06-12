@@ -11,6 +11,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.StringHttpMessageConverter;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
@@ -24,6 +25,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class FcoinUtils {
+    
+    private static final RetryTemplate retryTemplate = FcoinRetry.getRetryTemplate();
 
     private static final Logger logger = LoggerFactory.getLogger(FcoinUtils.class);
     //private static final String app_key = "42ffbdf4df994f1a8a181350e5b24541";
@@ -160,16 +163,13 @@ public class FcoinUtils {
             //查询余额
             String balance = null;
             try {
-                balance = getBalance();
+                balance = retryTemplate.execute(retryContext -> 
+                     getBalance()
+                );
             }catch (Exception e){
-                logger.error("blance query error!",e);
-                Thread.sleep(500);
-                try {
-                    balance = getBalance();
-                }catch (Exception e1){
-                    logger.error("error is ",e1);
-                }
+                logger.info("==========fcoinUtils.getBalance重试后还是异常============");
             }
+            
             Map<String, Double> balances = buildBalance(balance);
             double ft = balances.get("ft");
             double usdt = balances.get("usdt");
@@ -184,33 +184,31 @@ public class FcoinUtils {
                 double half = (ft * marketPrice + usdt) / 2;
                 //ft太多，需要卖出ft
                 BigDecimal b = new BigDecimal((ft * marketPrice - half) / marketPrice).setScale(2, BigDecimal.ROUND_HALF_UP);
+
                 try {
-                    sell("ftusdt", "market", b.toString());
-                }catch (Exception e){
-                    logger.error("init sell error!", e);
-                    Thread.sleep(500);
-                    try {
+                    retryTemplate.execute(retryContext -> {
                         sell("ftusdt", "market", b.toString());
-                    }catch (Exception e1){
-                        logger.error("error is ",e1);
-                    }
+                        return null;
+                    });
+                }catch (Exception e){
+                    logger.info("==========fcoinUtils.buy 重试后还是异常============");
                 }
+                
                 Thread.sleep(3000);
             } else if (ft * marketPrice < usdt && Math.abs(ft * marketPrice - usdt) > 10) {
                 double half = (ft * marketPrice + usdt) / 2;
                 //ft太少，需要买入ft
                 BigDecimal b = new BigDecimal((usdt - half) / marketPrice).setScale(2, BigDecimal.ROUND_HALF_UP);
+
                 try {
-                    buy("ftusdt", "market", b.toString());
-                }catch (Exception e){
-                    logger.error("init buy error!",e);
-                    Thread.sleep(500);
-                    try {
+                    retryTemplate.execute(retryContext -> {
                         buy("ftusdt", "market", b.toString());
-                    }catch (Exception e1){
-                        logger.error("error is ",e1);
-                    }
+                        return null;
+                    });
+                }catch (Exception e){
+                    logger.info("==========fcoinUtils.sell 重试后还是异常============");
                 }
+                
                 Thread.sleep(3000);
             }
             //买单 卖单
@@ -220,30 +218,25 @@ public class FcoinUtils {
             BigDecimal amount1 = new BigDecimal(price).setScale(2, BigDecimal.ROUND_HALF_UP);
             BigDecimal amount2 = new BigDecimal(price / marketPrice).setScale(2, BigDecimal.ROUND_HALF_UP);
             logger.info("=============================交易对开始=========================");
+
             try {
-                buy("ftusdt", "market", amount1.toString());
-            }catch (Exception e){
-                logger.error("交易对 buy error!",e);
-                Thread.sleep(500);
-                try {
+                retryTemplate.execute(retryContext -> {
                     buy("ftusdt", "market", amount1.toString());
-                }catch (Exception e1){
-                    logger.error("error is ",e1);
-                }
+                    return null;
+                });
+            }catch (Exception e){
+                logger.info("==========fcoinUtils.buy 重试后还是异常============");
             }
 
             try {
-                sell("ftusdt", "market", amount2.toString());
-            }catch (Exception e){
-                logger.error("交易对 sell error!",e);
-                Thread.sleep(500);
-                try {
+                retryTemplate.execute(retryContext -> {
                     sell("ftusdt", "market", amount2.toString());
-                }catch (Exception e1){
-                    logger.error("error is ",e1);
-                }
+                    return null;
+                });
+            }catch (Exception e){
+                logger.info("==========fcoinUtils.sell 重试后还是异常============");
             }
-            
+            logger.info("=============================交易对结束=========================");
 
             Thread.sleep(1000);
         }

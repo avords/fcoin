@@ -43,6 +43,13 @@
             <artifactId>quartz</artifactId>
             <version>1.8.6</version>
         </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.springframework.retry/spring-retry -->
+        <dependency>
+            <groupId>org.springframework.retry</groupId>
+            <artifactId>spring-retry</artifactId>
+            <version>1.2.2.RELEASE</version>
+        </dependency>
     </dependencies>
 
     <build>
