@@ -214,13 +214,15 @@ public class FcoinUtils {
             Map<String, Balance> balances = buildBalance(balance);
             Balance ftBalance = balances.get("ft");
             Balance usdtBalance = balances.get("usdt");
-            //判断是否有冻结的，冻结就休眠，进行下次挖矿
-            if (ftBalance.getFrozen() > 0 || usdtBalance.getFrozen() > 0) {
+
+            double ft = ftBalance.getBalance();
+            double usdt = usdtBalance.getBalance();
+            //判断是否有冻结的，如果冻结太多冻结就休眠，进行下次挖矿
+            if (ftBalance.getFrozen() > 0.1 * ft || usdtBalance.getFrozen() > 0.1 * usdt) {
                 Thread.sleep(3000);
                 continue;
             }
-            double ft = ftBalance.getBalance();
-            double usdt = usdtBalance.getBalance();
+
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
             //usdt小于51并且ft的价值小于51
@@ -235,8 +237,11 @@ public class FcoinUtils {
             double ftValue = ft * marketPrice;
             if (ftValue < initUstd || usdt < initUstd) {
                 //需要去初始化了
-                initBuyAndSell(ft, usdt, marketPrice, "ftusdt", "market");
-                //判断是否有冻结
+                if (isHaveInitBuyAndSell(ft, usdt, marketPrice, "ftusdt", "market")) {
+                    //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
+                    logger.info("================有进行初始化均衡操作=================");
+                    continue;
+                }
             }
 
             //买单 卖单
@@ -270,7 +275,7 @@ public class FcoinUtils {
         }
     }
 
-    private void initBuyAndSell(double ft, double usdt, double marketPrice, String symbol, String type) throws Exception {
+    private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice, String symbol, String type) throws Exception {
         //对半计算
         double half = (ft * marketPrice + usdt) / 2;
         //初始化小的
@@ -293,9 +298,12 @@ public class FcoinUtils {
             } catch (Exception e) {
                 logger.error("初始化卖有异常发生", e);
             }
+        } else {
+            return false;
         }
 
         Thread.sleep(3000);
+        return true;
     }
 
     private void initBuy(String symbol, String type, BigDecimal usdt) throws Exception {
