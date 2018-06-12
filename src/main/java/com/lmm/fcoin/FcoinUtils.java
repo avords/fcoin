@@ -5,6 +5,8 @@ import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.support.PropertiesLoaderUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -17,12 +19,14 @@ import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 public class FcoinUtils {
 
@@ -32,15 +36,33 @@ public class FcoinUtils {
     //private static final String app_key = "42ffbdf4df994f1a8a181350e5b24541";
     //private static final String app_secret = "7ae3e81c0e8e47a4b604eeeca39be6ec";
 
-    private static final String app_key = "c3d63dbd27714ca8a0887c938c4e8efe";
-    private static final String app_secret = "b78eadff63b1414fbd05a449e383c92d";
+    private static final String app_key;
+    private static final String app_secret;
 
-    private static final double initUstd = 3000;
-    private static final double maxUstd = 1000;
-    private static final double minUstd = 50;
+    private static final double initUstd;//初始化平衡的美金
+    private static final double maxUstd;//单笔最大金额
+    private static final double minUstd;//最小金额
 
-    private static final int initInterval = 10;//初始化间隔
+    private static final int initInterval;//初始化间隔
 
+    static {
+        Properties properties = null;
+        try {
+             properties= PropertiesLoaderUtils.loadProperties(
+                    new ClassPathResource("app.properties",FcoinUtils.class.getClassLoader()));
+        } catch (IOException e) {
+            logger.error("类初始化异常", e);
+        }
+        
+        app_key = properties.getProperty("app_key");
+        app_secret = properties.getProperty("app_secret");
+
+        initUstd = Double.valueOf(properties.getProperty("initUstd", "3000"));
+        maxUstd = Double.valueOf(properties.getProperty("maxUstd", "1000"));
+        minUstd = Double.valueOf(properties.getProperty("minUstd", "50"));
+
+        initInterval = Integer.valueOf(properties.getProperty("initInterval", "10"));
+    }
     public static BigDecimal getBigDecimal(double value, int scale) {
         return new BigDecimal(value).setScale(scale, BigDecimal.ROUND_HALF_UP);
     }
