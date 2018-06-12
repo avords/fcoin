@@ -218,7 +218,7 @@ public class FcoinUtils {
             double ft = ftBalance.getBalance();
             double usdt = usdtBalance.getBalance();
             //判断是否有冻结的，如果冻结太多冻结就休眠，进行下次挖矿
-            if (ftBalance.getFrozen() > 0.1 * ft || usdtBalance.getFrozen() > 0.1 * usdt) {
+            if (ftBalance.getFrozen() > 0.099 * ft || usdtBalance.getFrozen() > 0.099 * usdt) {
                 Thread.sleep(3000);
                 continue;
             }
