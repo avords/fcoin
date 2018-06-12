@@ -39,6 +39,8 @@ public class FcoinUtils {
     private static final double maxUstd = 1000;
     private static final double minUstd = 50;
 
+    private static final int initInterval = 10;//初始化间隔
+
     public static BigDecimal getBigDecimal(double value, int scale) {
         return new BigDecimal(value).setScale(scale, BigDecimal.ROUND_HALF_UP);
     }
@@ -198,7 +200,7 @@ public class FcoinUtils {
     //ftusdt
     public void ftusdt() throws Exception {
         double marketPrice = getFtUsdtPrice();
-
+        int tradeCount = 0;
         while (true) {
             //查询余额
             String balance = null;
@@ -235,11 +237,17 @@ public class FcoinUtils {
 
             //ft:usdt=1:0.6
             double ftValue = ft * marketPrice;
-            if (ftValue < initUstd || usdt < initUstd) {
+            if ((ftValue < initUstd || usdt < initUstd) && tradeCount % initInterval == 0) {
                 //需要去初始化了
-                if (isHaveInitBuyAndSell(ft, usdt, marketPrice, "ftusdt", "market")) {
-                    //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
-                    logger.info("================有进行初始化均衡操作=================");
+                try {
+                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, "ftusdt", "market")) {
+                        //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
+                        logger.info("================有进行初始化均衡操作=================");
+                        tradeCount++;
+                        continue;
+                    }
+                }catch (Exception e){//初始化失败，需要重新判断余额初始化
+                    tradeCount = 0;
                     continue;
                 }
             }
@@ -258,6 +266,7 @@ public class FcoinUtils {
                     return null;
                 });
             } catch (Exception e) {
+                tradeCount = 0;//重新初始化，平衡币的价值
                 logger.error("==========fcoinUtils.buy 重试后还是异常============", e);
             }
 
@@ -267,10 +276,12 @@ public class FcoinUtils {
                     return null;
                 });
             } catch (Exception e) {
+                tradeCount = 0;//重新初始化，平衡币的价值
                 logger.error("==========fcoinUtils.sell 重试后还是异常============", e);
             }
             logger.info("=============================交易对结束=========================");
 
+            tradeCount++;
             Thread.sleep(1000);
         }
     }
@@ -287,6 +298,7 @@ public class FcoinUtils {
                 initBuy(symbol, type, b);
             } catch (Exception e) {
                 logger.error("初始化买有异常发生", e);
+                throw new Exception(e);
             }
 
         } else if (usdt < half && Math.abs(ft * marketPrice - usdt) > 10) {
@@ -297,6 +309,7 @@ public class FcoinUtils {
                 initSell(symbol, type, b, marketPrice);
             } catch (Exception e) {
                 logger.error("初始化卖有异常发生", e);
+                throw new Exception(e);
             }
         } else {
             return false;
