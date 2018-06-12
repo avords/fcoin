@@ -23,6 +23,7 @@ public class FcoinJob implements StatefulJob {
             });
         }catch (Exception e){
             logger.info("==========fcoinUtils.ftusdt重试后还是异常============");
+            throw new JobExecutionException("ftustd 方法体执行异常");
         }
     }
 }
