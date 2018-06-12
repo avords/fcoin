@@ -168,6 +168,7 @@ public class FcoinUtils {
                 );
             }catch (Exception e){
                 logger.info("==========fcoinUtils.getBalance重试后还是异常============");
+                continue;
             }
             
             Map<String, Double> balances = buildBalance(balance);
@@ -215,13 +216,13 @@ public class FcoinUtils {
             double half = (ft * marketPrice + usdt) / 2;
             double price = Math.max(half * 0.9, 50);
 
-            BigDecimal amount1 = new BigDecimal(price).setScale(2, BigDecimal.ROUND_HALF_UP);
-            BigDecimal amount2 = new BigDecimal(price / marketPrice).setScale(2, BigDecimal.ROUND_HALF_UP);
+            BigDecimal ustdAmount = new BigDecimal(price).setScale(2, BigDecimal.ROUND_HALF_UP);
+            BigDecimal ftAmount = new BigDecimal(price / marketPrice).setScale(2, BigDecimal.ROUND_HALF_UP);
             logger.info("=============================交易对开始=========================");
 
             try {
                 retryTemplate.execute(retryContext -> {
-                    buy("ftusdt", "market", amount1.toString());
+                    buy("ftusdt", "market", ustdAmount.toString());
                     return null;
                 });
             }catch (Exception e){
@@ -230,7 +231,7 @@ public class FcoinUtils {
 
             try {
                 retryTemplate.execute(retryContext -> {
-                    sell("ftusdt", "market", amount2.toString());
+                    sell("ftusdt", "market", ftAmount.toString());
                     return null;
                 });
             }catch (Exception e){

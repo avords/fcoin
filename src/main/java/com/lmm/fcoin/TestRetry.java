@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.retry.RetryCallback;
 import org.springframework.retry.support.RetryTemplate;
 
+import java.util.Random;
+
 public class TestRetry {
 
     private static final Logger logger = LoggerFactory.getLogger(TestRetry.class);
@@ -25,6 +27,14 @@ public class TestRetry {
     
     public void buy() throws Exception {
         logger.info("=====================execute buy================");
-        throw new Exception("ee");
+        Random r = new Random();
+        int num = r.nextInt(2);
+        if(num==1){
+            logger.info("random num is {}",num);
+            throw new Exception("ee");
+        }
+        
+        logger.info("random num is {}",num);
+        
     }
 }
