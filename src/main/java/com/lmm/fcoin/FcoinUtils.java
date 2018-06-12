@@ -178,8 +178,8 @@ public class FcoinUtils {
 
             //usdt小于51并且ft的价值小于51
             if ((usdt < 51 && ft < (51 / marketPrice))
-                    || (usdt < 51 && Math.abs(ft * marketPrice - usdt) < 10)
-                    || (ft < (51 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 10)) {
+                    || (usdt < 51 && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < (51 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
