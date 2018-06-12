@@ -259,11 +259,4 @@ public class FcoinUtils {
 
         return map;
     }
-
-    public static void main(String[] args) throws Exception {
-        FcoinUtils fcoinUtils = new FcoinUtils();
-        while (true) {
-            fcoinUtils.ftusdt();
-        }
-    }
 }
