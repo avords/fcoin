@@ -142,6 +142,14 @@ public class FcoinUtils {
         }
     }
 
+    public static void buyNotLimit(String symbol, String type, BigDecimal amount, BigDecimal marketPrice) throws Exception {
+        subBuy(amount.toString(), marketPrice.toString(), symbol, type);
+    }
+
+    public static void sellNotLimit(String symbol, String type, BigDecimal amount, BigDecimal marketPrice) throws Exception {
+        subSell(amount.toString(), marketPrice.toString(), symbol, type);
+    }
+
     private static void createOrder(String amount, String price, String side, String symbol, String type) throws Exception {
         String url = "https://api.fcoin.com/v2/orders";
         Long timeStamp = System.currentTimeMillis();
@@ -347,7 +355,7 @@ public class FcoinUtils {
             logger.info("=============================交易对开始=========================");
 
             try {
-                retryTemplate.execute(retryContext -> {
+                tradeRetryTemplate.execute(retryContext -> {
                     buy("ftusdt", "limit", ustdAmount, getMarketPrice(marketPrice));
                     return null;
                 });
@@ -379,7 +387,7 @@ public class FcoinUtils {
         if (ft * marketPrice < usdt && Math.abs(ft * marketPrice - usdt) > 10) {
             //买ft
             double num = Math.min((usdt - ft * marketPrice) / 2, initUstd);
-            BigDecimal b = getNum(num);
+            BigDecimal b = getNum(num/marketPrice);//现价的数量都为ft的数量
             try {
                 buy(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
             } catch (Exception e) {
@@ -478,14 +486,13 @@ public class FcoinUtils {
 
             //买单 卖单
             double price = Math.min(ft * marketPrice, usdt);
-
-            BigDecimal ustdAmount = getNum(price);
+            
             BigDecimal ftAmount = getNum(price / marketPrice);
             logger.info("=============================交易对开始=========================");
 
             try {
-                retryTemplate.execute(retryContext -> {
-                    buy("ftusdt", "limit", ustdAmount, getMarketPrice(marketPrice - 0.005));
+                tradeRetryTemplate.execute(retryContext -> {
+                    buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice - 0.005));
                     return null;
                 });
             } catch (Exception e) {
@@ -495,7 +502,7 @@ public class FcoinUtils {
 
             try {
                 tradeRetryTemplate.execute(retryContext -> {
-                    sell("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
+                    sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
                     return null;
                 });
             } catch (Exception e) {
