@@ -22,11 +22,14 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 public class FcoinUtils {
 
@@ -69,10 +72,6 @@ public class FcoinUtils {
     }
     public static BigDecimal getBigDecimal(double value, int scale) {
         return new BigDecimal(value).setScale(scale, BigDecimal.ROUND_HALF_UP);
-    }
-
-    public static BigDecimal getNum(BigDecimal b){
-        return b.setScale(2, BigDecimal.ROUND_HALF_UP);
     }
     
     public static BigDecimal getNum(double b){
@@ -127,7 +126,7 @@ public class FcoinUtils {
         BigDecimal maxUsdtDecimal = getNum(maxUstd);
         BigDecimal coinValue = amount.multiply(marketPrice);
         while (amount.doubleValue() > 0) {
-            BigDecimal sellNum = getNum(maxUsdtDecimal.divide(marketPrice));
+            BigDecimal sellNum = getNum(maxUsdtDecimal.doubleValue()/marketPrice.doubleValue());
             if (coinValue.compareTo(maxUsdtDecimal) > 0) {
                 subSell(sellNum.toString(), marketPrice.toString(), symbol, type);
             } else {
@@ -215,9 +214,66 @@ public class FcoinUtils {
         return response.getBody();
     }
 
+    public List<String> getOrdes(String symbol, String states, String after, String limit) throws Exception {
+        String url = "https://api.fcoin.com/v2/orders?after="+after+"&limit="+limit+"states="+states+"&symbol"+symbol;
+        Long timeStamp = System.currentTimeMillis();
+        MultiValueMap<String, String> headers = new HttpHeaders();
+        headers.add("FC-ACCESS-KEY", app_key);
+        headers.add("FC-ACCESS-SIGNATURE", getSign("GET" + url + timeStamp, app_secret));
+        headers.add("FC-ACCESS-TIMESTAMP", timeStamp.toString());
+
+        HttpEntity requestEntity = new HttpEntity<>(headers);
+        RestTemplate client = new RestTemplate();
+        client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
+        ResponseEntity<String> response = client.exchange(url, HttpMethod.GET, requestEntity, String.class);
+        logger.info(response.getBody());
+        JSONArray jsonArray = JSON.parseObject(response.getBody()).getJSONArray("data");
+        if(jsonArray==null||jsonArray.size()==0){
+            return new ArrayList<>();
+        }
+        return jsonArray.stream().map(jsonObject->((JSONObject)jsonObject).getString("id")).collect(Collectors.toList());
+    }
+    public List<String> getNotTradeOrders(String symbol, String after, String limit) throws Exception {
+        List<String> list1 = getOrdes(symbol,"submitted",after,limit);
+        List<String> list2 = getOrdes(symbol,"partial_filled",after,limit);
+        list1.addAll(list2);
+        return list1;
+    }
+    
+    public void cancelOrders(List<String> orderIds) throws Exception {
+        if(orderIds==null||orderIds.size()==0){
+            return;
+        }
+        String urlPath = "https://api.fcoin.com/v2/orders/%s/submit-cancel";
+        for (String orderId : orderIds) {
+            retryTemplate.execute(retryContext -> {
+                String url = String.format(urlPath, orderId);
+                Long timeStamp = System.currentTimeMillis();
+                HttpHeaders headers = new HttpHeaders();
+                headers.add("FC-ACCESS-KEY", app_key);
+                headers.add("FC-ACCESS-TIMESTAMP", timeStamp.toString());
+                try {
+                    headers.add("FC-ACCESS-SIGNATURE",
+                            getSign("POST" + url + timeStamp , app_secret));
+                } catch (Exception e) {
+                    logger.error(e.toString());
+                }
+                MediaType t = MediaType.parseMediaType("application/json; charset=UTF-8");
+                headers.setContentType(t);
+                headers.setAccept(Collections.singletonList(MediaType.ALL));
+
+                HttpEntity<String> requestEntity = new HttpEntity<String>(null, headers);
+                RestTemplate client = new RestTemplate();
+                client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
+                ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
+                return response.getBody();
+            });
+        }
+    }
     //ftusdt
     public void ftusdt() throws Exception {
         int tradeCount = 0;
+        int frozenCount = 0;
         while (true) {
             
             //查询余额
@@ -239,6 +295,10 @@ public class FcoinUtils {
             double usdt = usdtBalance.getBalance();
             //判断是否有冻结的，如果冻结太多冻结就休眠，进行下次挖矿
             if (ftBalance.getFrozen() > 0.099 * ft || usdtBalance.getFrozen() > 0.099 * usdt) {
+                frozenCount++;
+                if(frozenCount%40==0){
+                    cancelOrders(getNotTradeOrders("ftusdt","0","100"));
+                }
                 Thread.sleep(3000);
                 continue;
             }
