@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.Mac;
@@ -150,7 +151,7 @@ public class FcoinUtils {
         subSell(amount.toString(), marketPrice.toString(), symbol, type);
     }
 
-    private static void createOrder(String amount, String price, String side, String symbol, String type) throws Exception {
+    private static boolean createOrder(String amount, String price, String side, String symbol, String type) throws Exception {
         String url = "https://api.fcoin.com/v2/orders";
         Long timeStamp = System.currentTimeMillis();
         HttpHeaders headers = new HttpHeaders();
@@ -185,14 +186,38 @@ public class FcoinUtils {
         client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
         ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
         logger.info(response.getBody());
+        if(StringUtils.isEmpty(response.getBody())){
+            throw new Exception("订单创建失败："+type);
+        }
+        if(StringUtils.isEmpty(response.getBody())) {
+            String data = JSON.parseObject(response.getBody()).getString("data");
+            if (StringUtils.isEmpty(data)) {
+                throw new Exception("订单创建失败："+type);
+            }
+        }
+        return true;
     }
 
     public static void subSell(String amount, String price, String symbol, String type) throws Exception {
-        createOrder(amount, price, "sell", symbol, type);
+        try {
+            tradeRetryTemplate.execute(retryContext -> 
+                createOrder(amount, price, "sell", symbol, type)
+            );
+            
+        } catch (Exception e) {
+            logger.error("==========fcoinUtils.createOrder重试后还是异常==sell============", e);
+        }
     }
 
     public static void subBuy(String amount, String price, String symbol, String type) throws Exception {
-        createOrder(amount, price, "buy", symbol, type);
+        try {
+            tradeRetryTemplate.execute(retryContext ->
+                    createOrder(amount, price, "buy", symbol, type)
+            );
+
+        } catch (Exception e) {
+            logger.error("==========fcoinUtils.createOrder重试后还是异常==buy============", e);
+        }
     }
 
     public static double getFtUsdtPrice() throws Exception {
@@ -347,32 +372,15 @@ public class FcoinUtils {
             }
 
             //买单 卖单
-            double half = (ft * marketPrice + usdt) / 2;
-            double price = Math.min(Math.max(half * 0.9, minUstd), maxUstd);
-
-            BigDecimal ustdAmount = getNum(price);
+            double price = Math.min(Math.min(ft*marketPrice, usdt), maxUstd);
+            
             BigDecimal ftAmount = getNum(price / marketPrice);
             logger.info("=============================交易对开始=========================");
-
-            try {
-                tradeRetryTemplate.execute(retryContext -> {
-                    buy("ftusdt", "limit", ustdAmount, getMarketPrice(marketPrice));
-                    return null;
-                });
-            } catch (Exception e) {
-                tradeCount = 0;//重新初始化，平衡币的价值
-                logger.error("==========fcoinUtils.buy 重试后还是异常============", e);
-            }
-
-            try {
-                tradeRetryTemplate.execute(retryContext -> {
-                    sell("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
-                    return null;
-                });
-            } catch (Exception e) {
-                tradeCount = 0;//重新初始化，平衡币的价值
-                logger.error("==========fcoinUtils.sell 重试后还是异常============", e);
-            }
+            
+            buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
+            
+            sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
+                   
             logger.info("=============================交易对结束=========================");
 
             tradeCount++;
@@ -490,25 +498,11 @@ public class FcoinUtils {
             BigDecimal ftAmount = getNum(price / marketPrice);
             logger.info("=============================交易对开始=========================");
 
-            try {
-                tradeRetryTemplate.execute(retryContext -> {
-                    buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice - 0.005));
-                    return null;
-                });
-            } catch (Exception e) {
-                tradeCount = 0;//重新初始化，平衡币的价值
-                logger.error("==========fcoinUtils.buy 重试后还是异常============", e);
-            }
+            buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice - 0.005));
+               
 
-            try {
-                tradeRetryTemplate.execute(retryContext -> {
-                    sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
-                    return null;
-                });
-            } catch (Exception e) {
-                tradeCount = 0;//重新初始化，平衡币的价值
-                logger.error("==========fcoinUtils.sell 重试后还是异常============", e);
-            }
+            sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
+                    
             logger.info("=============================交易对结束=========================");
 
             tradeCount++;
