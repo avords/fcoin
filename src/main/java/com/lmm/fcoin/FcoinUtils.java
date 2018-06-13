@@ -182,9 +182,11 @@ public class FcoinUtils {
 
     //ftusdt
     public void ftusdt() throws Exception {
-        double marketPrice = getFtUsdtPrice();
 
         while (true) {
+            
+            Double marketPrice = getFtUsdtPrice();
+            
             //查询余额
             String balance = null;
             try {
@@ -239,7 +241,7 @@ public class FcoinUtils {
 
             try {
                 tradeRetryTemplate.execute(retryContext -> {
-                    buy("ftusdt", "market", ustdAmount, marketPrice);
+                    buy("ftusdt", "limit", ustdAmount, marketPrice);
                     return null;
                 });
             } catch (Exception e) {
@@ -248,7 +250,7 @@ public class FcoinUtils {
 
             try {
                 tradeRetryTemplate.execute(retryContext -> {
-                    sell("ftusdt", "market", ftAmount, marketPrice);
+                    sell("ftusdt", "limit", ftAmount, marketPrice);
                     return null;
                 });
             } catch (Exception e) {
