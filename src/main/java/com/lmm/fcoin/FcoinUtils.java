@@ -45,9 +45,9 @@ public class FcoinUtils {
     private static final String app_key;
     private static final String app_secret;
 
-    private static final double initUstd;//初始化平衡的美金
-    private static final double maxUstd;//单笔最大金额
-    private static final double minUstd;//最小金额
+    private static final double initMultiple;//初始化平衡的美金
+    private static final double maxNum;//单笔最大数量
+    private static final double minUsdt;//最小美金
     private static final int pricePrecision;
 
     private static final int initInterval;//初始化间隔
@@ -64,9 +64,9 @@ public class FcoinUtils {
         app_key = properties.getProperty("app_key");
         app_secret = properties.getProperty("app_secret");
 
-        initUstd = Double.valueOf(properties.getProperty("initUstd", "3000"));
-        maxUstd = Double.valueOf(properties.getProperty("maxUstd", "1000"));
-        minUstd = Double.valueOf(properties.getProperty("minUstd", "50"));
+        initMultiple = Double.valueOf(properties.getProperty("initMultiple", "3"));
+        maxNum = Double.valueOf(properties.getProperty("maxNum", "1000"));
+        minUsdt = Double.valueOf(properties.getProperty("minUsdt", "50"));
 
         initInterval = Integer.valueOf(properties.getProperty("initInterval", "10"));
         pricePrecision = Integer.valueOf(properties.getProperty("pricePrecision", "2"));
@@ -111,15 +111,15 @@ public class FcoinUtils {
     }
 
     public static void buy(String symbol, String type, BigDecimal amount, BigDecimal marketPrice) throws Exception {
-        BigDecimal maxUsdtDecimal = getNum(maxUstd);
+        BigDecimal maxNumDeci = getNum(maxNum);
         while (amount.doubleValue() > 0) {
-            if (amount.compareTo(maxUsdtDecimal) > 0) {
-                subBuy(maxUsdtDecimal.toString(), marketPrice.toString(), symbol, type);
+            if (amount.compareTo(maxNumDeci) > 0) {
+                subBuy(maxNumDeci.toString(), marketPrice.toString(), symbol, type);
             } else {
                 subBuy(amount.toString(), marketPrice.toString(), symbol, type);
                 break;
             }
-            amount = amount.subtract(maxUsdtDecimal);
+            amount = amount.subtract(maxNumDeci);
 
             Thread.sleep(5000);
         }
@@ -127,17 +127,15 @@ public class FcoinUtils {
     }
 
     public static void sell(String symbol, String type, BigDecimal amount, BigDecimal marketPrice) throws Exception {
-        BigDecimal maxUsdtDecimal = getNum(maxUstd);
-        BigDecimal coinValue = amount.multiply(marketPrice);
+        BigDecimal maxNumDeci = getNum(maxNum);
         while (amount.doubleValue() > 0) {
-            BigDecimal sellNum = getNum(maxUsdtDecimal.doubleValue() / marketPrice.doubleValue());
-            if (coinValue.compareTo(maxUsdtDecimal) > 0) {
-                subSell(sellNum.toString(), marketPrice.toString(), symbol, type);
+            if (amount.compareTo(maxNumDeci) > 0) {
+                subSell(maxNumDeci.toString(), marketPrice.toString(), symbol, type);
             } else {
                 subSell(amount.toString(), marketPrice.toString(), symbol, type);
                 break;
             }
-            amount = amount.subtract(sellNum);
+            amount = amount.subtract(maxNumDeci);
 
             Thread.sleep(5000);
         }
@@ -186,13 +184,13 @@ public class FcoinUtils {
         client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
         ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
         logger.info(response.getBody());
-        if(StringUtils.isEmpty(response.getBody())){
-            throw new Exception("订单创建失败："+type);
+        if (StringUtils.isEmpty(response.getBody())) {
+            throw new Exception("订单创建失败：" + type);
         }
-        if(StringUtils.isEmpty(response.getBody())) {
+        if (StringUtils.isEmpty(response.getBody())) {
             String data = JSON.parseObject(response.getBody()).getString("data");
             if (StringUtils.isEmpty(data)) {
-                throw new Exception("订单创建失败："+type);
+                throw new Exception("订单创建失败：" + type);
             }
         }
         return true;
@@ -200,10 +198,10 @@ public class FcoinUtils {
 
     public static void subSell(String amount, String price, String symbol, String type) throws Exception {
         try {
-            tradeRetryTemplate.execute(retryContext -> 
-                createOrder(amount, price, "sell", symbol, type)
+            tradeRetryTemplate.execute(retryContext ->
+                    createOrder(amount, price, "sell", symbol, type)
             );
-            
+
         } catch (Exception e) {
             logger.error("==========fcoinUtils.createOrder重试后还是异常==sell============", e);
         }
@@ -306,11 +304,11 @@ public class FcoinUtils {
                 RestTemplate client = new RestTemplate();
                 client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
                 ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
-                if(StringUtils.isEmpty(response.getBody())){
+                if (StringUtils.isEmpty(response.getBody())) {
                     throw new Exception("cacel order error");
                 }
                 boolean flag = JSON.parseObject(response.getBody()).getBoolean("data");
-                if(!flag){
+                if (!flag) {
                     throw new Exception("cacel order error");
                 }
                 return true;
@@ -355,19 +353,20 @@ public class FcoinUtils {
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
             Double marketPrice = getFtUsdtPrice();
             //usdt小于51并且ft的价值小于51
-            if ((usdt < minUstd + 1 && ft < (minUstd + 1 / marketPrice))
-                    || (usdt < minUstd + 1 && Math.abs(ft * marketPrice - usdt) < 11)
-                    || (ft < (minUstd + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+            if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
+                    || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < (minUsdt + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
 
-            //ft:usdt=1:0.6
+            //ft:usdt=1:0.6 平衡资金
             double ftValue = ft * marketPrice;
-            if ((ftValue < initUstd || usdt < initUstd) && tradeCount % initInterval == 0) {
+            double initUsdt = maxNum * initMultiple * marketPrice;
+            if ((ftValue < initUsdt || usdt < initUsdt) && tradeCount % initInterval == 0) {
                 //需要去初始化了
                 try {
-                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, "ftusdt", "limit")) {
+                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice,initUsdt, "ftusdt", "limit")) {
                         //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
                         logger.info("================有进行初始化均衡操作=================");
                         tradeCount++;
@@ -380,15 +379,15 @@ public class FcoinUtils {
             }
 
             //买单 卖单
-            double price = Math.min(Math.min(ft*marketPrice, usdt), maxUstd);
-            
+            double price = Math.min(Math.min(ft * marketPrice, usdt), maxNum * marketPrice);
+
             BigDecimal ftAmount = getNum(price / marketPrice);
             logger.info("=============================交易对开始=========================");
-            
+
             buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
-            
+
             sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
-                   
+
             logger.info("=============================交易对结束=========================");
 
             tradeCount++;
@@ -396,14 +395,13 @@ public class FcoinUtils {
         }
     }
 
-    private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice, String symbol, String type) throws Exception {
-        //对半计算
-        double half = (ft * marketPrice + usdt) / 2;
+    private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice,double initUsdt, String symbol, String type) throws Exception {
         //初始化小的
-        if (ft * marketPrice < usdt && Math.abs(ft * marketPrice - usdt) > 10) {
+        double ftValue = ft*marketPrice;
+        if (ftValue < usdt && Math.abs(ftValue - usdt) > 10) {
             //买ft
-            double num = Math.min((usdt - ft * marketPrice) / 2, initUstd);
-            BigDecimal b = getNum(num/marketPrice);//现价的数量都为ft的数量
+            double num = Math.min((usdt - ftValue) / 2, initUsdt);
+            BigDecimal b = getNum(num / marketPrice);//现价的数量都为ft的数量
             try {
                 buy(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
             } catch (Exception e) {
@@ -411,9 +409,9 @@ public class FcoinUtils {
                 throw new Exception(e);
             }
 
-        } else if (usdt < ft * marketPrice && Math.abs(ft * marketPrice - usdt) > 10) {
+        } else if (usdt < ftValue && Math.abs(ftValue - usdt) > 10) {
             //卖ft
-            double num = Math.min((ft * marketPrice - usdt) / 2, initUstd);
+            double num = Math.min((ftValue - usdt) / 2, initUsdt);
             BigDecimal b = getBigDecimal(num / marketPrice, 2);
             try {
                 sell(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
@@ -476,19 +474,20 @@ public class FcoinUtils {
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
             Double marketPrice = getFtUsdtPrice();
             //usdt小于51并且ft的价值小于51
-            if ((usdt < minUstd + 1 && ft < (minUstd + 1 / marketPrice))
-                    || (usdt < minUstd + 1 && Math.abs(ft * marketPrice - usdt) < 11)
-                    || (ft < (minUstd + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+            if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
+                    || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < (minUsdt + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
 
             //ft:usdt=1:0.6
             double ftValue = ft * marketPrice;
-            if ((ftValue < initUstd || usdt < initUstd) && tradeCount % initInterval == 0) {
+            double initUsdt = maxNum * initMultiple *marketPrice;
+            if ((ftValue < initUsdt || usdt < initUsdt) && tradeCount % initInterval == 0) {
                 //需要去初始化了
                 try {
-                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, "ftusdt", "limit")) {
+                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt,"ftusdt", "limit")) {
                         //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
                         logger.info("================有进行初始化均衡操作=================");
                         tradeCount++;
@@ -502,15 +501,15 @@ public class FcoinUtils {
 
             //买单 卖单
             double price = Math.min(ft * marketPrice, usdt);
-            
+
             BigDecimal ftAmount = getNum(price / marketPrice);
             logger.info("=============================交易对开始=========================");
 
             buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice - 0.005));
-               
+
 
             sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
-                    
+
             logger.info("=============================交易对结束=========================");
 
             tradeCount++;
