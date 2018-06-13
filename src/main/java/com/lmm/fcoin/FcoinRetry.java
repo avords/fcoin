@@ -24,4 +24,21 @@ public class FcoinRetry {
         
         return retryTemplate;
     }
+    
+    public static RetryTemplate getTradeRetryTemplate(){
+        final RetryTemplate retryTemplate = new RetryTemplate();
+
+        final SimpleRetryPolicy policy = new SimpleRetryPolicy(10, Collections.<Class<? extends Throwable>, Boolean>
+                singletonMap(Exception.class, true));
+
+        FixedBackOffPolicy fixedBackOffPolicy = new FixedBackOffPolicy();
+
+        //设置重试间隔时间
+        fixedBackOffPolicy.setBackOffPeriod(500);
+
+        retryTemplate.setRetryPolicy(policy);
+        retryTemplate.setBackOffPolicy(fixedBackOffPolicy);
+
+        return retryTemplate;
+    }
 }
