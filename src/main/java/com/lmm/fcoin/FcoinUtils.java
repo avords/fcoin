@@ -376,9 +376,9 @@ public class FcoinUtils {
         //对半计算
         double half = (ft * marketPrice + usdt) / 2;
         //初始化小的
-        if (ft * marketPrice < half && Math.abs(ft * marketPrice - usdt) > 10) {
+        if (ft * marketPrice < usdt && Math.abs(ft * marketPrice - usdt) > 10) {
             //买ft
-            double num = Math.min(half - ft * marketPrice, initUstd);
+            double num = Math.min((usdt - ft * marketPrice) / 2, initUstd);
             BigDecimal b = getNum(num);
             try {
                 buy(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
@@ -387,9 +387,9 @@ public class FcoinUtils {
                 throw new Exception(e);
             }
 
-        } else if (usdt < half && Math.abs(ft * marketPrice - usdt) > 10) {
+        } else if (usdt < ft * marketPrice && Math.abs(ft * marketPrice - usdt) > 10) {
             //卖ft
-            double num = Math.min(half - usdt, initUstd);
+            double num = Math.min((ft * marketPrice - usdt) / 2, initUstd);
             BigDecimal b = getBigDecimal(num / marketPrice, 2);
             try {
                 sell(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
@@ -477,7 +477,7 @@ public class FcoinUtils {
             }
 
             //买单 卖单
-            double price = Math.min(ft*marketPrice,usdt);
+            double price = Math.min(ft * marketPrice, usdt);
 
             BigDecimal ustdAmount = getNum(price);
             BigDecimal ftAmount = getNum(price / marketPrice);
@@ -485,7 +485,7 @@ public class FcoinUtils {
 
             try {
                 retryTemplate.execute(retryContext -> {
-                    buy("ftusdt", "limit", ustdAmount, getMarketPrice(marketPrice-0.005));
+                    buy("ftusdt", "limit", ustdAmount, getMarketPrice(marketPrice - 0.005));
                     return null;
                 });
             } catch (Exception e) {
@@ -495,7 +495,7 @@ public class FcoinUtils {
 
             try {
                 tradeRetryTemplate.execute(retryContext -> {
-                    sell("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice+0.005));
+                    sell("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
                     return null;
                 });
             } catch (Exception e) {
