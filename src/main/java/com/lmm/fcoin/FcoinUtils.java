@@ -308,7 +308,7 @@ public class FcoinUtils {
     }
 
     //ftusdt
-    public void ftusdt() throws Exception {
+    public void ftusdt(String symbol, String ftName, String usdtName) throws Exception {
         int tradeCount = 0;
         int frozenCount = 0;
         while (true) {
@@ -325,8 +325,8 @@ public class FcoinUtils {
             }
 
             Map<String, Balance> balances = buildBalance(balance);
-            Balance ftBalance = balances.get("ft");
-            Balance usdtBalance = balances.get("usdt");
+            Balance ftBalance = balances.get(ftName);
+            Balance usdtBalance = balances.get(usdtName);
 
             double ft = ftBalance.getBalance();
             double usdt = usdtBalance.getBalance();
@@ -334,7 +334,7 @@ public class FcoinUtils {
             if (ftBalance.getFrozen() > 0.099 * ft || usdtBalance.getFrozen() > 0.099 * usdt) {
                 frozenCount++;
                 if (frozenCount % 40 == 0) {
-                    cancelOrders(getNotTradeOrders("ftusdt", "0", "100"));
+                    cancelOrders(getNotTradeOrders(symbol, "0", "100"));
                 }
                 Thread.sleep(3000);
                 continue;
@@ -356,7 +356,7 @@ public class FcoinUtils {
             if ((ftValue < initUsdt || usdt < initUsdt) && tradeCount % initInterval == 0) {
                 //需要去初始化了
                 try {
-                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, "ftusdt", "limit")) {
+                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
                         //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
                         logger.info("================有进行初始化均衡操作=================");
                         tradeCount++;
@@ -375,14 +375,14 @@ public class FcoinUtils {
             tradeCount++;
             logger.info("=============================交易对开始=========================");
             try {
-                buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
+                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice));
             } catch (Exception e) {
                 logger.error("交易对买出错", e);
                 tradeCount = 0;
             }
 
             try {
-                sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
+                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice));
             } catch (Exception e) {
                 logger.error("交易对卖出错", e);
                 tradeCount = 0;
@@ -442,7 +442,7 @@ public class FcoinUtils {
         return map;
     }
 
-    public void ftusdt1() throws Exception {
+    public void ftusdt1(String symbol, String ftName, String usdtName) throws Exception {
         int tradeCount = 0;
         while (true) {
 
@@ -458,8 +458,8 @@ public class FcoinUtils {
             }
 
             Map<String, Balance> balances = buildBalance(balance);
-            Balance ftBalance = balances.get("ft");
-            Balance usdtBalance = balances.get("usdt");
+            Balance ftBalance = balances.get(ftName);
+            Balance usdtBalance = balances.get(usdtName);
 
             double ft = ftBalance.getBalance();
             double usdt = usdtBalance.getBalance();
@@ -485,7 +485,7 @@ public class FcoinUtils {
             if ((ftValue < initUsdt || usdt < initUsdt) && tradeCount % initInterval == 0) {
                 //需要去初始化了
                 try {
-                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, "ftusdt", "limit")) {
+                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
                         //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
                         logger.info("================有进行初始化均衡操作=================");
                         tradeCount++;
@@ -506,13 +506,13 @@ public class FcoinUtils {
             logger.info("=============================交易对开始=========================");
 
             try {
-                buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice - 0.005));
+                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice - 0.005));
             } catch (Exception e) {
                 logger.error("交易对买出错", e);
                 tradeCount = 0;
             }
             try {
-                sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
+                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
             } catch (Exception e) {
                 logger.error("交易对卖出错", e);
                 tradeCount = 0;
