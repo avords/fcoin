@@ -160,16 +160,17 @@ public class FcoinUtils {
         params.put("side", side);
         params.put("symbol", symbol);
         params.put("type", type);
-        String param = JSON.toJSONString(params);
         String urlSeri = "";
         if ("limit".equals(type)) {
-            urlSeri = "amount=" + amount + "&price" + price + "&side=" + side + "&symbol=" + symbol + "&type=" + type;
+            urlSeri = "amount=" + amount + "&price=" + price + "&side=" + side + "&symbol=" + symbol + "&type=" + type;
             params.put("price", price);
         } else if ("market".equals(type)) {
             urlSeri = "amount=" + amount + "&side=" + side + "&symbol=" + symbol + "&type=" + type;
         }
         headers.add("FC-ACCESS-SIGNATURE",
                 getSign("POST" + url + timeStamp + urlSeri, app_secret));
+
+        String param = JSON.toJSONString(params);
         logger.info(param);
         HttpEntity<String> requestEntity = new HttpEntity<String>(param, headers);
         RestTemplate client = new RestTemplate();
@@ -220,7 +221,7 @@ public class FcoinUtils {
     }
 
     public List<String> getOrdes(String symbol, String states, String after, String limit) throws Exception {
-        String url = "https://api.fcoin.com/v2/orders?after=" + after + "&limit=" + limit + "states=" + states + "&symbol" + symbol;
+        String url = "https://api.fcoin.com/v2/orders?after=" + after + "&limit=" + limit + "&states=" + states + "&symbol" + symbol;
         Long timeStamp = System.currentTimeMillis();
         MultiValueMap<String, String> headers = new HttpHeaders();
         headers.add("FC-ACCESS-KEY", app_key);
