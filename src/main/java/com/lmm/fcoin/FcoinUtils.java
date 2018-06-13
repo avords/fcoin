@@ -221,7 +221,7 @@ public class FcoinUtils {
     }
 
     public List<String> getOrdes(String symbol, String states, String after, String limit) throws Exception {
-        String url = "https://api.fcoin.com/v2/orders?after=" + after + "&limit=" + limit + "&states=" + states + "&symbol" + symbol;
+        String url = "https://api.fcoin.com/v2/orders?after=" + after + "&limit=" + limit + "&states=" + states + "&symbol=" + symbol;
         Long timeStamp = System.currentTimeMillis();
         MultiValueMap<String, String> headers = new HttpHeaders();
         headers.add("FC-ACCESS-KEY", app_key);
@@ -420,5 +420,92 @@ public class FcoinUtils {
         });
 
         return map;
+    }
+
+    public void ftusdt1() throws Exception {
+        int tradeCount = 0;
+        while (true) {
+
+            //查询余额
+            String balance = null;
+            try {
+                balance = retryTemplate.execute(retryContext ->
+                        getBalance()
+                );
+            } catch (Exception e) {
+                logger.error("==========fcoinUtils.getBalance重试后还是异常============", e);
+                continue;
+            }
+
+            Map<String, Balance> balances = buildBalance(balance);
+            Balance ftBalance = balances.get("ft");
+            Balance usdtBalance = balances.get("usdt");
+
+            double ft = ftBalance.getBalance();
+            double usdt = usdtBalance.getBalance();
+            //判断是否有冻结的，如果冻结太多冻结就休眠，进行下次挖矿
+            if (ftBalance.getFrozen() > 0.099 * ft || usdtBalance.getFrozen() > 0.099 * usdt) {
+                Thread.sleep(3000);
+                continue;
+            }
+
+            logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
+            Double marketPrice = getFtUsdtPrice();
+            //usdt小于51并且ft的价值小于51
+            if ((usdt < minUstd + 1 && ft < (minUstd + 1 / marketPrice))
+                    || (usdt < minUstd + 1 && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < (minUstd + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+                logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
+                break;
+            }
+
+            //ft:usdt=1:0.6
+            double ftValue = ft * marketPrice;
+            if ((ftValue < initUstd || usdt < initUstd) && tradeCount % initInterval == 0) {
+                //需要去初始化了
+                try {
+                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, "ftusdt", "limit")) {
+                        //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
+                        logger.info("================有进行初始化均衡操作=================");
+                        tradeCount++;
+                        continue;
+                    }
+                } catch (Exception e) {//初始化失败，需要重新判断余额初始化
+                    tradeCount = 0;
+                    continue;
+                }
+            }
+
+            //买单 卖单
+            double price = Math.min(ft*marketPrice,usdt);
+
+            BigDecimal ustdAmount = getNum(price);
+            BigDecimal ftAmount = getNum(price / marketPrice);
+            logger.info("=============================交易对开始=========================");
+
+            try {
+                retryTemplate.execute(retryContext -> {
+                    buy("ftusdt", "limit", ustdAmount, getMarketPrice(marketPrice-0.005));
+                    return null;
+                });
+            } catch (Exception e) {
+                tradeCount = 0;//重新初始化，平衡币的价值
+                logger.error("==========fcoinUtils.buy 重试后还是异常============", e);
+            }
+
+            try {
+                tradeRetryTemplate.execute(retryContext -> {
+                    sell("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice+0.005));
+                    return null;
+                });
+            } catch (Exception e) {
+                tradeCount = 0;//重新初始化，平衡币的价值
+                logger.error("==========fcoinUtils.sell 重试后还是异常============", e);
+            }
+            logger.info("=============================交易对结束=========================");
+
+            tradeCount++;
+            Thread.sleep(1000);
+        }
     }
 }

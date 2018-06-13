@@ -14,7 +14,7 @@ public class FcoinJob implements StatefulJob {
     public void execute(JobExecutionContext jobExecutionContext) throws JobExecutionException {
         FcoinUtils fcoinUtils = new FcoinUtils();
         try {
-            fcoinUtils.ftusdt();
+            fcoinUtils.ftusdt1();
         }catch (Exception e){
             logger.info("==========FcoinJob发生异常============");
             throw new JobExecutionException("ftustd 方法体执行异常");
