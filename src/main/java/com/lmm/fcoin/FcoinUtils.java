@@ -443,7 +443,7 @@ public class FcoinUtils {
     }
 
     public void ftusdt1(String symbol, String ftName, String usdtName) throws Exception {
-        int tradeCount = 0;
+
         while (true) {
 
             //查询余额
@@ -480,21 +480,12 @@ public class FcoinUtils {
             }
 
             //ft:usdt=1:0.6
-            double ftValue = ft * marketPrice;
             double initUsdt = maxNum * initMultiple * marketPrice;
-            if ((ftValue < initUsdt || usdt < initUsdt) && tradeCount % initInterval == 0) {
-                //需要去初始化了
-                try {
-                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
-                        //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
-                        logger.info("================有进行初始化均衡操作=================");
-                        tradeCount++;
-                        continue;
-                    }
-                } catch (Exception e) {//初始化失败，需要重新判断余额初始化
-                    tradeCount = 0;
-                    continue;
-                }
+
+            //初始化
+            if(isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")){
+                logger.info("================有进行初始化均衡操作=================");
+                continue;
             }
 
             //买单 卖单
@@ -502,20 +493,17 @@ public class FcoinUtils {
 
             BigDecimal ftAmount = getNum(price / marketPrice);
 
-            tradeCount++;
             logger.info("=============================交易对开始=========================");
 
             try {
-                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice - 0.005));
+                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice - 0.01));
             } catch (Exception e) {
                 logger.error("交易对买出错", e);
-                tradeCount = 0;
             }
             try {
-                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
+                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice + 0.01));
             } catch (Exception e) {
                 logger.error("交易对卖出错", e);
-                tradeCount = 0;
             }
             logger.info("=============================交易对结束=========================");
 
