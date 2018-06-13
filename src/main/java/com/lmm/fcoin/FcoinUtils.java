@@ -27,6 +27,8 @@ import java.util.Map;
 public class FcoinUtils {
 
     private static final RetryTemplate retryTemplate = FcoinRetry.getRetryTemplate();
+    
+    private static final RetryTemplate tradeRetryTemplate = FcoinRetry.getTradeRetryTemplate();
 
     private static final Logger logger = LoggerFactory.getLogger(FcoinUtils.class);
     //private static final String app_key = "42ffbdf4df994f1a8a181350e5b24541";
@@ -69,42 +71,13 @@ public class FcoinUtils {
         return response.getBody();
     }
 
-    public static void subBuy(String symbol, String type, String amount) throws Exception {
-        String side = "buy";
-        String url = "https://api.fcoin.com/v2/orders";
-        Long timeStamp = System.currentTimeMillis();
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("FC-ACCESS-KEY", app_key);
-        headers.add("FC-ACCESS-SIGNATURE",
-                getSign("POST" + url + timeStamp + "amount=" + amount + "&side=" + side + "&symbol=" + symbol + "&type=" + type, app_secret));
-        headers.add("FC-ACCESS-TIMESTAMP", timeStamp.toString());
-        MediaType t = MediaType.parseMediaType("application/json; charset=UTF-8");
-        headers.setContentType(t);
-        headers.setAccept(Collections.singletonList(MediaType.ALL));
-
-        //  封装参数，千万不要替换为Map与HashMap，否则参数无法传递
-        Map<String, String> params = new HashMap<>();
-        //  也支持中文
-        params.put("amount", amount);
-        params.put("side", side);
-        params.put("symbol", symbol);
-        params.put("type", type);
-        String param = JSON.toJSONString(params);
-        logger.info(param);
-        HttpEntity<String> requestEntity = new HttpEntity<String>(param, headers);
-        RestTemplate client = new RestTemplate();
-        client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
-        ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
-        logger.info(response.getBody());
-    }
-
-    public static void buy(String symbol, String type, BigDecimal amount) throws Exception {
+    public static void buy(String symbol, String type, BigDecimal amount,double marketPrice) throws Exception {
         BigDecimal maxUsdtDecimal = getBigDecimal(maxUstd, 2);
         while (amount.doubleValue() > 0) {
             if (amount.compareTo(maxUsdtDecimal) > 0) {
-                subBuy(symbol, type, maxUsdtDecimal.toString());
+                subBuy(maxUsdtDecimal.toString(), getBigDecimal(marketPrice,2).toString(), symbol, type);
             } else {
-                subBuy(symbol, type, amount.toString());
+                subBuy(amount.toString(), getBigDecimal(marketPrice,2).toString(), symbol, type);
                 break;
             }
             amount = amount.subtract(maxUsdtDecimal);
@@ -120,9 +93,9 @@ public class FcoinUtils {
         while (amount.doubleValue() > 0) {
             BigDecimal sellNum = getBigDecimal(maxUsdtDecimal.doubleValue() / marketPrice, 2);
             if (coinValue.compareTo(maxUsdtDecimal) > 0) {
-                subSell(symbol, type, sellNum.toString());
+                subSell(sellNum.toString(), getBigDecimal(marketPrice,2).toString(), symbol, type);
             } else {
-                subSell(symbol, type, amount.toString());
+                subSell(amount.toString(), getBigDecimal(marketPrice,2).toString(), symbol, type);
                 break;
             }
             amount = amount.subtract(sellNum);
@@ -131,14 +104,11 @@ public class FcoinUtils {
         }
     }
 
-    public static void subSell(String symbol, String type, String amount) throws Exception {
-        String side = "sell";
+    private static void createOrder(String amount,String price, String side, String symbol, String type) throws Exception{
         String url = "https://api.fcoin.com/v2/orders";
         Long timeStamp = System.currentTimeMillis();
         HttpHeaders headers = new HttpHeaders();
         headers.add("FC-ACCESS-KEY", app_key);
-        headers.add("FC-ACCESS-SIGNATURE",
-                getSign("POST" + url + timeStamp + "amount=" + amount + "&side=" + side + "&symbol=" + symbol + "&type=" + type, app_secret));
         headers.add("FC-ACCESS-TIMESTAMP", timeStamp.toString());
 
         MediaType t = MediaType.parseMediaType("application/json; charset=UTF-8");
@@ -153,6 +123,15 @@ public class FcoinUtils {
         params.put("symbol", symbol);
         params.put("type", type);
         String param = JSON.toJSONString(params);
+        String urlSeri = "";
+        if("limit".equals(type)){
+            urlSeri = "amount=" + amount+"&price" + price + "&side=" + side + "&symbol=" + symbol + "&type=" + type;
+            params.put("price", price);
+        }else if("market".equals(type)){
+            urlSeri = "amount=" + amount + "&side=" + side + "&symbol=" + symbol + "&type=" + type;
+        }
+        headers.add("FC-ACCESS-SIGNATURE",
+                getSign("POST" + url + timeStamp + urlSeri, app_secret));
         logger.info(param);
         HttpEntity<String> requestEntity = new HttpEntity<String>(param, headers);
         RestTemplate client = new RestTemplate();
@@ -160,7 +139,13 @@ public class FcoinUtils {
         ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
         logger.info(response.getBody());
     }
-
+    public static void subSell(String amount, String price, String symbol, String type) throws Exception {
+        createOrder(amount, price, "sell",symbol,type);
+    }
+    public static void subBuy(String amount, String price, String symbol, String type) throws Exception {
+        createOrder(amount, price, "buy",symbol,type);
+    }
+    
     public static double getFtUsdtPrice() throws Exception {
         String url = "https://api.fcoin.com/v2/market/ticker/ftusdt";
         Long timeStamp = System.currentTimeMillis();
@@ -253,8 +238,8 @@ public class FcoinUtils {
             logger.info("=============================交易对开始=========================");
 
             try {
-                retryTemplate.execute(retryContext -> {
-                    buy("ftusdt", "market", ustdAmount);
+                tradeRetryTemplate.execute(retryContext -> {
+                    buy("ftusdt", "market", ustdAmount, marketPrice);
                     return null;
                 });
             } catch (Exception e) {
@@ -262,7 +247,7 @@ public class FcoinUtils {
             }
 
             try {
-                retryTemplate.execute(retryContext -> {
+                tradeRetryTemplate.execute(retryContext -> {
                     sell("ftusdt", "market", ftAmount, marketPrice);
                     return null;
                 });
@@ -284,7 +269,7 @@ public class FcoinUtils {
             double num = Math.min(half - ft * marketPrice, initUstd);
             BigDecimal b = getBigDecimal(num, 2);
             try {
-                initBuy(symbol, type, b);
+                initBuy(symbol, type, b, marketPrice);
             } catch (Exception e) {
                 logger.error("初始化买有异常发生", e);
             }
@@ -306,9 +291,9 @@ public class FcoinUtils {
         return true;
     }
 
-    private void initBuy(String symbol, String type, BigDecimal usdt) throws Exception {
+    private void initBuy(String symbol, String type, BigDecimal usdt, double marketPrice) throws Exception {
         //不需要重试
-        buy(symbol, type, usdt);
+        buy(symbol, type, usdt, marketPrice);
     }
 
     private void initSell(String symbol, String type, BigDecimal coin, double marketPrice) throws Exception {
