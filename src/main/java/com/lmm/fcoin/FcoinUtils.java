@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 public class FcoinUtils {
 
     private static final RetryTemplate retryTemplate = FcoinRetry.getRetryTemplate();
-    
+
     private static final RetryTemplate tradeRetryTemplate = FcoinRetry.getTradeRetryTemplate();
 
     private static final Logger logger = LoggerFactory.getLogger(FcoinUtils.class);
@@ -54,12 +54,12 @@ public class FcoinUtils {
     static {
         Properties properties = null;
         try {
-             properties= PropertiesLoaderUtils.loadProperties(
-                    new ClassPathResource("app.properties",FcoinUtils.class.getClassLoader()));
+            properties = PropertiesLoaderUtils.loadProperties(
+                    new ClassPathResource("app.properties", FcoinUtils.class.getClassLoader()));
         } catch (IOException e) {
             logger.error("类初始化异常", e);
         }
-        
+
         app_key = properties.getProperty("app_key");
         app_secret = properties.getProperty("app_secret");
 
@@ -68,18 +68,21 @@ public class FcoinUtils {
         minUstd = Double.valueOf(properties.getProperty("minUstd", "50"));
 
         initInterval = Integer.valueOf(properties.getProperty("initInterval", "10"));
-        pricePrecision = Integer.valueOf(properties.getProperty("pricePrecision","2"));
+        pricePrecision = Integer.valueOf(properties.getProperty("pricePrecision", "2"));
     }
+
     public static BigDecimal getBigDecimal(double value, int scale) {
         return new BigDecimal(value).setScale(scale, BigDecimal.ROUND_HALF_UP);
     }
-    
-    public static BigDecimal getNum(double b){
-        return getBigDecimal(b,2);
+
+    public static BigDecimal getNum(double b) {
+        return getBigDecimal(b, 2);
     }
-    public static BigDecimal getMarketPrice(double marketPrice){
+
+    public static BigDecimal getMarketPrice(double marketPrice) {
         return getBigDecimal(marketPrice, pricePrecision);
     }
+
     public static String getSign(String data, String secret) throws Exception {
 
         String base64_1 = Base64.getEncoder().encodeToString(data.getBytes("utf-8"));
@@ -106,7 +109,7 @@ public class FcoinUtils {
         return response.getBody();
     }
 
-    public static void buy(String symbol, String type, BigDecimal amount,BigDecimal marketPrice) throws Exception {
+    public static void buy(String symbol, String type, BigDecimal amount, BigDecimal marketPrice) throws Exception {
         BigDecimal maxUsdtDecimal = getNum(maxUstd);
         while (amount.doubleValue() > 0) {
             if (amount.compareTo(maxUsdtDecimal) > 0) {
@@ -126,7 +129,7 @@ public class FcoinUtils {
         BigDecimal maxUsdtDecimal = getNum(maxUstd);
         BigDecimal coinValue = amount.multiply(marketPrice);
         while (amount.doubleValue() > 0) {
-            BigDecimal sellNum = getNum(maxUsdtDecimal.doubleValue()/marketPrice.doubleValue());
+            BigDecimal sellNum = getNum(maxUsdtDecimal.doubleValue() / marketPrice.doubleValue());
             if (coinValue.compareTo(maxUsdtDecimal) > 0) {
                 subSell(sellNum.toString(), marketPrice.toString(), symbol, type);
             } else {
@@ -139,7 +142,7 @@ public class FcoinUtils {
         }
     }
 
-    private static void createOrder(String amount,String price, String side, String symbol, String type) throws Exception{
+    private static void createOrder(String amount, String price, String side, String symbol, String type) throws Exception {
         String url = "https://api.fcoin.com/v2/orders";
         Long timeStamp = System.currentTimeMillis();
         HttpHeaders headers = new HttpHeaders();
@@ -159,10 +162,10 @@ public class FcoinUtils {
         params.put("type", type);
         String param = JSON.toJSONString(params);
         String urlSeri = "";
-        if("limit".equals(type)){
-            urlSeri = "amount=" + amount+"&price" + price + "&side=" + side + "&symbol=" + symbol + "&type=" + type;
+        if ("limit".equals(type)) {
+            urlSeri = "amount=" + amount + "&price" + price + "&side=" + side + "&symbol=" + symbol + "&type=" + type;
             params.put("price", price);
-        }else if("market".equals(type)){
+        } else if ("market".equals(type)) {
             urlSeri = "amount=" + amount + "&side=" + side + "&symbol=" + symbol + "&type=" + type;
         }
         headers.add("FC-ACCESS-SIGNATURE",
@@ -174,13 +177,15 @@ public class FcoinUtils {
         ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
         logger.info(response.getBody());
     }
+
     public static void subSell(String amount, String price, String symbol, String type) throws Exception {
-        createOrder(amount, price, "sell",symbol,type);
+        createOrder(amount, price, "sell", symbol, type);
     }
+
     public static void subBuy(String amount, String price, String symbol, String type) throws Exception {
-        createOrder(amount, price, "buy",symbol,type);
+        createOrder(amount, price, "buy", symbol, type);
     }
-    
+
     public static double getFtUsdtPrice() throws Exception {
         String url = "https://api.fcoin.com/v2/market/ticker/ftusdt";
         Long timeStamp = System.currentTimeMillis();
@@ -215,7 +220,7 @@ public class FcoinUtils {
     }
 
     public List<String> getOrdes(String symbol, String states, String after, String limit) throws Exception {
-        String url = "https://api.fcoin.com/v2/orders?after="+after+"&limit="+limit+"states="+states+"&symbol"+symbol;
+        String url = "https://api.fcoin.com/v2/orders?after=" + after + "&limit=" + limit + "states=" + states + "&symbol" + symbol;
         Long timeStamp = System.currentTimeMillis();
         MultiValueMap<String, String> headers = new HttpHeaders();
         headers.add("FC-ACCESS-KEY", app_key);
@@ -228,20 +233,21 @@ public class FcoinUtils {
         ResponseEntity<String> response = client.exchange(url, HttpMethod.GET, requestEntity, String.class);
         logger.info(response.getBody());
         JSONArray jsonArray = JSON.parseObject(response.getBody()).getJSONArray("data");
-        if(jsonArray==null||jsonArray.size()==0){
+        if (jsonArray == null || jsonArray.size() == 0) {
             return new ArrayList<>();
         }
-        return jsonArray.stream().map(jsonObject->((JSONObject)jsonObject).getString("id")).collect(Collectors.toList());
+        return jsonArray.stream().map(jsonObject -> ((JSONObject) jsonObject).getString("id")).collect(Collectors.toList());
     }
+
     public List<String> getNotTradeOrders(String symbol, String after, String limit) throws Exception {
-        List<String> list1 = getOrdes(symbol,"submitted",after,limit);
-        List<String> list2 = getOrdes(symbol,"partial_filled",after,limit);
+        List<String> list1 = getOrdes(symbol, "submitted", after, limit);
+        List<String> list2 = getOrdes(symbol, "partial_filled", after, limit);
         list1.addAll(list2);
         return list1;
     }
-    
+
     public void cancelOrders(List<String> orderIds) throws Exception {
-        if(orderIds==null||orderIds.size()==0){
+        if (orderIds == null || orderIds.size() == 0) {
             return;
         }
         String urlPath = "https://api.fcoin.com/v2/orders/%s/submit-cancel";
@@ -254,7 +260,7 @@ public class FcoinUtils {
                 headers.add("FC-ACCESS-TIMESTAMP", timeStamp.toString());
                 try {
                     headers.add("FC-ACCESS-SIGNATURE",
-                            getSign("POST" + url + timeStamp , app_secret));
+                            getSign("POST" + url + timeStamp, app_secret));
                 } catch (Exception e) {
                     logger.error(e.toString());
                 }
@@ -270,12 +276,13 @@ public class FcoinUtils {
             });
         }
     }
+
     //ftusdt
     public void ftusdt() throws Exception {
         int tradeCount = 0;
         int frozenCount = 0;
         while (true) {
-            
+
             //查询余额
             String balance = null;
             try {
@@ -296,8 +303,8 @@ public class FcoinUtils {
             //判断是否有冻结的，如果冻结太多冻结就休眠，进行下次挖矿
             if (ftBalance.getFrozen() > 0.099 * ft || usdtBalance.getFrozen() > 0.099 * usdt) {
                 frozenCount++;
-                if(frozenCount%40==0){
-                    cancelOrders(getNotTradeOrders("ftusdt","0","100"));
+                if (frozenCount % 40 == 0) {
+                    cancelOrders(getNotTradeOrders("ftusdt", "0", "100"));
                 }
                 Thread.sleep(3000);
                 continue;
@@ -324,7 +331,7 @@ public class FcoinUtils {
                         tradeCount++;
                         continue;
                     }
-                }catch (Exception e){//初始化失败，需要重新判断余额初始化
+                } catch (Exception e) {//初始化失败，需要重新判断余额初始化
                     tradeCount = 0;
                     continue;
                 }
@@ -335,7 +342,7 @@ public class FcoinUtils {
             double price = Math.min(Math.max(half * 0.9, minUstd), maxUstd);
 
             BigDecimal ustdAmount = getNum(price);
-            BigDecimal ftAmount = getNum(price/marketPrice);
+            BigDecimal ftAmount = getNum(price / marketPrice);
             logger.info("=============================交易对开始=========================");
 
             try {
