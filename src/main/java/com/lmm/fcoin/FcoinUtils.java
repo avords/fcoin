@@ -280,9 +280,9 @@ public class FcoinUtils {
         return list1;
     }
 
-    public void cancelOrders(List<String> orderIds) throws Exception {
+    public boolean cancelOrders(List<String> orderIds) throws Exception {
         if (orderIds == null || orderIds.size() == 0) {
-            return;
+            return false;
         }
         String urlPath = "https://api.fcoin.com/v2/orders/%s/submit-cancel";
         for (String orderId : orderIds) {
@@ -306,9 +306,17 @@ public class FcoinUtils {
                 RestTemplate client = new RestTemplate();
                 client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
                 ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
-                return response.getBody();
+                if(StringUtils.isEmpty(response.getBody())){
+                    throw new Exception("cacel order error");
+                }
+                boolean flag = JSON.parseObject(response.getBody()).getBoolean("data");
+                if(!flag){
+                    throw new Exception("cacel order error");
+                }
+                return true;
             });
         }
+        return true;
     }
 
     //ftusdt
