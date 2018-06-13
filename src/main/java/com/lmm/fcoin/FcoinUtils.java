@@ -197,25 +197,15 @@ public class FcoinUtils {
     }
 
     public static void subSell(String amount, String price, String symbol, String type) throws Exception {
-        try {
-            tradeRetryTemplate.execute(retryContext ->
-                    createOrder(amount, price, "sell", symbol, type)
-            );
-
-        } catch (Exception e) {
-            logger.error("==========fcoinUtils.createOrder重试后还是异常==sell============", e);
-        }
+        tradeRetryTemplate.execute(retryContext ->
+                createOrder(amount, price, "sell", symbol, type)
+        );
     }
 
     public static void subBuy(String amount, String price, String symbol, String type) throws Exception {
-        try {
-            tradeRetryTemplate.execute(retryContext ->
-                    createOrder(amount, price, "buy", symbol, type)
-            );
-
-        } catch (Exception e) {
-            logger.error("==========fcoinUtils.createOrder重试后还是异常==buy============", e);
-        }
+        tradeRetryTemplate.execute(retryContext ->
+                createOrder(amount, price, "buy", symbol, type)
+        );
     }
 
     public static double getFtUsdtPrice() throws Exception {
@@ -366,7 +356,7 @@ public class FcoinUtils {
             if ((ftValue < initUsdt || usdt < initUsdt) && tradeCount % initInterval == 0) {
                 //需要去初始化了
                 try {
-                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice,initUsdt, "ftusdt", "limit")) {
+                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, "ftusdt", "limit")) {
                         //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
                         logger.info("================有进行初始化均衡操作=================");
                         tradeCount++;
@@ -382,22 +372,30 @@ public class FcoinUtils {
             double price = Math.min(Math.min(ft * marketPrice, usdt), maxNum * marketPrice);
 
             BigDecimal ftAmount = getNum(price / marketPrice);
+            tradeCount++;
             logger.info("=============================交易对开始=========================");
+            try {
+                buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
+            } catch (Exception e) {
+                logger.error("交易对买出错", e);
+                tradeCount = 0;
+            }
 
-            buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
-
-            sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
+            try {
+                sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice));
+            } catch (Exception e) {
+                logger.error("交易对卖出错", e);
+                tradeCount = 0;
+            }
 
             logger.info("=============================交易对结束=========================");
-
-            tradeCount++;
             Thread.sleep(1000);
         }
     }
 
-    private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice,double initUsdt, String symbol, String type) throws Exception {
+    private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice, double initUsdt, String symbol, String type) throws Exception {
         //初始化小的
-        double ftValue = ft*marketPrice;
+        double ftValue = ft * marketPrice;
         if (ftValue < usdt && Math.abs(ftValue - usdt) > 10) {
             //买ft
             double num = Math.min((usdt - ftValue) / 2, initUsdt);
@@ -483,11 +481,11 @@ public class FcoinUtils {
 
             //ft:usdt=1:0.6
             double ftValue = ft * marketPrice;
-            double initUsdt = maxNum * initMultiple *marketPrice;
+            double initUsdt = maxNum * initMultiple * marketPrice;
             if ((ftValue < initUsdt || usdt < initUsdt) && tradeCount % initInterval == 0) {
                 //需要去初始化了
                 try {
-                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt,"ftusdt", "limit")) {
+                    if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, "ftusdt", "limit")) {
                         //进行了两个币种的均衡，去进行余额查询，并判断是否成交完
                         logger.info("================有进行初始化均衡操作=================");
                         tradeCount++;
@@ -503,16 +501,24 @@ public class FcoinUtils {
             double price = Math.min(ft * marketPrice, usdt);
 
             BigDecimal ftAmount = getNum(price / marketPrice);
-            logger.info("=============================交易对开始=========================");
-
-            buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice - 0.005));
-
-
-            sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
-
-            logger.info("=============================交易对结束=========================");
 
             tradeCount++;
+            logger.info("=============================交易对开始=========================");
+
+            try {
+                buyNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice - 0.005));
+            } catch (Exception e) {
+                logger.error("交易对买出错", e);
+                tradeCount = 0;
+            }
+            try {
+                sellNotLimit("ftusdt", "limit", ftAmount, getMarketPrice(marketPrice + 0.005));
+            } catch (Exception e) {
+                logger.error("交易对卖出错", e);
+                tradeCount = 0;
+            }
+            logger.info("=============================交易对结束=========================");
+
             Thread.sleep(1000);
         }
     }
