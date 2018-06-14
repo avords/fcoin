@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Class-Path: spring-jcl-5.0.5.RELEASE.jar log4j-1.2.17.jar spring-web-5
+ .0.5.RELEASE.jar spring-beans-5.0.5.RELEASE.jar fastjson-1.2.20.jar q
+ uartz-1.8.6.jar slf4j-log4j12-1.7.21.jar slf4j-api-1.7.21.jar spring-
+ retry-1.2.2.RELEASE.jar spring-core-5.0.5.RELEASE.jar
+Main-Class: com.lmm.quartz.QuartzFcoin
+
