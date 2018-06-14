@@ -396,7 +396,7 @@ public class FcoinUtils {
     private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice, double initUsdt, String symbol, String type) throws Exception {
         //初始化小的
         double ftValue = ft * marketPrice;
-        if (ftValue < usdt && Math.abs(ftValue - usdt) > 10) {
+        if (ftValue < usdt && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
             //买ft
             double num = Math.min((usdt - ftValue) / 2, initUsdt);
             BigDecimal b = getNum(num / marketPrice);//现价的数量都为ft的数量
@@ -407,7 +407,7 @@ public class FcoinUtils {
                 throw new Exception(e);
             }
 
-        } else if (usdt < ftValue && Math.abs(ftValue - usdt) > 10) {
+        } else if (usdt < ftValue && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
             //卖ft
             double num = Math.min((ftValue - usdt) / 2, initUsdt);
             BigDecimal b = getBigDecimal(num / marketPrice, 2);
@@ -483,7 +483,7 @@ public class FcoinUtils {
             double initUsdt = maxNum * initMultiple * marketPrice;
 
             //初始化
-            if(isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")){
+            if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
                 logger.info("================有进行初始化均衡操作=================");
                 continue;
             }
