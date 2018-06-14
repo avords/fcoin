@@ -316,7 +316,14 @@ public class FcoinUtils {
         return true;
     }
 
-    //ftusdt
+    /**
+     * 自买自卖，但是增加挂单超时取消功能
+     *
+     * @param symbol   交易对
+     * @param ftName   交易币名称
+     * @param usdtName 市场币名称
+     * @throws Exception
+     */
     public void ftusdt(String symbol, String ftName, String usdtName) throws Exception {
         int tradeCount = 0;
         int frozenCount = 0;
@@ -452,6 +459,15 @@ public class FcoinUtils {
         return map;
     }
 
+    /**
+     * 自买自卖交易
+     *
+     * @param symbol    交易对
+     * @param ftName    交易币名称
+     * @param usdtName  市场币名称
+     * @param increment 收益率一半
+     * @throws Exception
+     */
     public void ftusdt1(String symbol, String ftName, String usdtName, double increment) throws Exception {
 
         while (true) {
@@ -507,12 +523,12 @@ public class FcoinUtils {
             logger.info("=============================交易对开始=========================");
 
             try {
-                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice - increment));
+                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice * (1 - increment)));
             } catch (Exception e) {
                 logger.error("交易对买出错", e);
             }
             try {
-                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice + increment));
+                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice * (1 + increment)));
             } catch (Exception e) {
                 logger.error("交易对卖出错", e);
             }
@@ -522,6 +538,15 @@ public class FcoinUtils {
         }
     }
 
+    /**
+     * 做波段调用此函数
+     *
+     * @param symbol    交易对
+     * @param ftName    交易币的名称
+     * @param usdtName  市场币名称
+     * @param increment 收益率的一半
+     * @throws Exception
+     */
     public void ftusdt2(String symbol, String ftName, String usdtName, double increment) throws Exception {
 
         while (true) {
