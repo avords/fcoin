@@ -39,8 +39,6 @@ public class FcoinUtils {
     private static final RetryTemplate tradeRetryTemplate = FcoinRetry.getTradeRetryTemplate();
 
     private static final Logger logger = LoggerFactory.getLogger(FcoinUtils.class);
-    //private static final String app_key = "42ffbdf4df994f1a8a181350e5b24541";
-    //private static final String app_secret = "7ae3e81c0e8e47a4b604eeeca39be6ec";
 
     private static final String app_key;
     private static final String app_secret;
