@@ -316,6 +316,55 @@ public class FcoinUtils {
         return true;
     }
 
+    private Map<String, Balance> buildBalance(String balance) {
+        Map<String, Balance> map = new HashMap<>();
+
+        JSONObject jsonObject = JSON.parseObject(balance);
+        JSONArray jsonArray = jsonObject.getJSONArray("data");
+        jsonArray.stream().forEach(jsonObj -> {
+            JSONObject obj = (JSONObject) jsonObj;
+            Balance balanceVo = new Balance();
+            balanceVo.setAvailable(Double.valueOf(obj.getString("available")));
+            balanceVo.setBalance(Double.valueOf(obj.getString("balance")));
+            balanceVo.setFrozen(Double.valueOf(obj.getString("frozen")));
+            map.put(obj.getString("currency"), balanceVo);
+        });
+
+        return map;
+    }
+
+    private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice, double initUsdt, String symbol, String type) throws Exception {
+        //初始化小的
+        double ftValue = ft * marketPrice;
+        if (ftValue < usdt && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
+            //买ft
+            double num = Math.min((usdt - ftValue) / 2, initUsdt);
+            BigDecimal b = getNum(num / marketPrice);//现价的数量都为ft的数量
+            try {
+                buy(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
+            } catch (Exception e) {
+                logger.error("初始化买有异常发生", e);
+                throw new Exception(e);
+            }
+
+        } else if (usdt < ftValue && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
+            //卖ft
+            double num = Math.min((ftValue - usdt) / 2, initUsdt);
+            BigDecimal b = getBigDecimal(num / marketPrice, 2);
+            try {
+                sell(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
+            } catch (Exception e) {
+                logger.error("初始化卖有异常发生", e);
+                throw new Exception(e);
+            }
+        } else {
+            return false;
+        }
+
+        Thread.sleep(3000);
+        return true;
+    }
+
     /**
      * 自买自卖，但是增加挂单超时取消功能
      *
@@ -386,7 +435,7 @@ public class FcoinUtils {
             }
 
             //买单 卖单
-            double price = Math.min(Math.min(ftBalance.getAvailable(), usdtBalance.getAvailable()), maxNum * marketPrice);
+            double price = Math.min(Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable()), maxNum * marketPrice);
 
             BigDecimal ftAmount = getNum(price / marketPrice);
             tradeCount++;
@@ -408,55 +457,6 @@ public class FcoinUtils {
             logger.info("=============================交易对结束=========================");
             Thread.sleep(1000);
         }
-    }
-
-    private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice, double initUsdt, String symbol, String type) throws Exception {
-        //初始化小的
-        double ftValue = ft * marketPrice;
-        if (ftValue < usdt && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
-            //买ft
-            double num = Math.min((usdt - ftValue) / 2, initUsdt);
-            BigDecimal b = getNum(num / marketPrice);//现价的数量都为ft的数量
-            try {
-                buy(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
-            } catch (Exception e) {
-                logger.error("初始化买有异常发生", e);
-                throw new Exception(e);
-            }
-
-        } else if (usdt < ftValue && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
-            //卖ft
-            double num = Math.min((ftValue - usdt) / 2, initUsdt);
-            BigDecimal b = getBigDecimal(num / marketPrice, 2);
-            try {
-                sell(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
-            } catch (Exception e) {
-                logger.error("初始化卖有异常发生", e);
-                throw new Exception(e);
-            }
-        } else {
-            return false;
-        }
-
-        Thread.sleep(3000);
-        return true;
-    }
-
-    private Map<String, Balance> buildBalance(String balance) {
-        Map<String, Balance> map = new HashMap<>();
-
-        JSONObject jsonObject = JSON.parseObject(balance);
-        JSONArray jsonArray = jsonObject.getJSONArray("data");
-        jsonArray.stream().forEach(jsonObj -> {
-            JSONObject obj = (JSONObject) jsonObj;
-            Balance balanceVo = new Balance();
-            balanceVo.setAvailable(Double.valueOf(obj.getString("available")));
-            balanceVo.setBalance(Double.valueOf(obj.getString("balance")));
-            balanceVo.setFrozen(Double.valueOf(obj.getString("frozen")));
-            map.put(obj.getString("currency"), balanceVo);
-        });
-
-        return map;
     }
 
     /**
@@ -516,7 +516,7 @@ public class FcoinUtils {
             }
 
             //买单 卖单
-            double price = Math.min(ftBalance.getAvailable(), usdtBalance.getAvailable());
+            double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
             BigDecimal ftAmount = getNum(price / marketPrice);
 
@@ -588,6 +588,7 @@ public class FcoinUtils {
             //在波段内才能交易
             double avgPrice = priceInfo.get("24HPrice");
             if (Math.abs(marketPrice - avgPrice) > avgPrice * 0.01) {
+                Thread.sleep(3000);
                 continue;
             }
             //ft:usdt=1:0.6
@@ -600,7 +601,7 @@ public class FcoinUtils {
             }
 
             //买单 卖单
-            double price = Math.min(ftBalance.getAvailable(), usdtBalance.getAvailable());
+            double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
             BigDecimal ftAmount = getNum(price / marketPrice);
 
