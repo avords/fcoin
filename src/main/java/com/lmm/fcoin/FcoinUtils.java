@@ -208,8 +208,8 @@ public class FcoinUtils {
         );
     }
 
-    public static double getFtUsdtPrice() throws Exception {
-        String url = "https://api.fcoin.com/v2/market/ticker/ftusdt";
+    public static Map<String, Double> getPriceInfo(String symbol) throws Exception {
+        String url = "https://api.fcoin.com/v2/market/ticker/" + symbol;
         Long timeStamp = System.currentTimeMillis();
         MultiValueMap<String, String> headers = new HttpHeaders();
         headers.add("FC-ACCESS-KEY", app_key);
@@ -222,7 +222,16 @@ public class FcoinUtils {
         ResponseEntity<String> response = client.exchange(url, HttpMethod.GET, requestEntity, String.class);
         JSONObject jsonObject = JSON.parseObject(response.getBody());
         JSONArray jsonArray = jsonObject.getJSONObject("data").getJSONArray("ticker");
-        return Double.valueOf(jsonArray.get(0).toString());
+        Map<String, Double> result = new HashMap<>();
+        double marketPrice = Double.valueOf(jsonArray.get(0).toString());
+
+        result.put("marketPrice", marketPrice);
+        double hight_24H = Double.valueOf(jsonArray.get(7).toString());
+        double low_24H = Double.valueOf(jsonArray.get(8).toString());
+
+        result.put("24HPrice", (hight_24H + low_24H) / 2);
+
+        return result;
     }
 
     public static String getSymbols() throws Exception {
@@ -341,7 +350,8 @@ public class FcoinUtils {
             }
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
-            Double marketPrice = getFtUsdtPrice();
+            Map<String, Double> priceInfo = getPriceInfo(symbol);
+            Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
             if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
                     || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
@@ -470,7 +480,8 @@ public class FcoinUtils {
             }
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
-            Double marketPrice = getFtUsdtPrice();
+            Map<String, Double> priceInfo = getPriceInfo(symbol);
+            Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
             if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
                     || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
@@ -502,6 +513,81 @@ public class FcoinUtils {
             }
             try {
                 sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice + increment));
+            } catch (Exception e) {
+                logger.error("交易对卖出错", e);
+            }
+            logger.info("=============================交易对结束=========================");
+
+            Thread.sleep(1000);
+        }
+    }
+
+    public void ftusdt2(String symbol, String ftName, String usdtName, double increment) throws Exception {
+
+        while (true) {
+
+            //查询余额
+            String balance = null;
+            try {
+                balance = retryTemplate.execute(retryContext ->
+                        getBalance()
+                );
+            } catch (Exception e) {
+                logger.error("==========fcoinUtils.getBalance重试后还是异常============", e);
+                continue;
+            }
+
+            Map<String, Balance> balances = buildBalance(balance);
+            Balance ftBalance = balances.get(ftName);
+            Balance usdtBalance = balances.get(usdtName);
+
+            double ft = ftBalance.getBalance();
+            double usdt = usdtBalance.getBalance();
+            //判断是否有冻结的，如果冻结太多冻结就休眠，进行下次挖矿
+            if (ftBalance.getFrozen() > 0.099 * ft || usdtBalance.getFrozen() > 0.099 * usdt) {
+                Thread.sleep(3000);
+                continue;
+            }
+
+            logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
+            Map<String, Double> priceInfo = getPriceInfo(symbol);
+            Double marketPrice = priceInfo.get("marketPrice");
+            //usdt小于51并且ft的价值小于51
+            if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
+                    || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < (minUsdt + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+                logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
+                break;
+            }
+
+            //在波段内才能交易
+            double avgPrice = priceInfo.get("24HPrice");
+            if (Math.abs(marketPrice - avgPrice) > avgPrice * 0.01) {
+                continue;
+            }
+            //ft:usdt=1:0.6
+            double initUsdt = maxNum * initMultiple * marketPrice;
+
+            //初始化
+            if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
+                logger.info("================有进行初始化均衡操作=================");
+                continue;
+            }
+
+            //买单 卖单
+            double price = Math.min(ftBalance.getAvailable(), usdtBalance.getAvailable());
+
+            BigDecimal ftAmount = getNum(price / marketPrice);
+
+            logger.info("=============================交易对开始=========================");
+
+            try {
+                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice * (1 - increment)));
+            } catch (Exception e) {
+                logger.error("交易对买出错", e);
+            }
+            try {
+                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice * (1 + increment)));
             } catch (Exception e) {
                 logger.error("交易对卖出错", e);
             }
