@@ -442,7 +442,7 @@ public class FcoinUtils {
         return map;
     }
 
-    public void ftusdt1(String symbol, String ftName, String usdtName) throws Exception {
+    public void ftusdt1(String symbol, String ftName, String usdtName, double increment) throws Exception {
 
         while (true) {
 
@@ -496,12 +496,12 @@ public class FcoinUtils {
             logger.info("=============================交易对开始=========================");
 
             try {
-                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice - 0.01));
+                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice - increment));
             } catch (Exception e) {
                 logger.error("交易对买出错", e);
             }
             try {
-                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice + 0.01));
+                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice + increment));
             } catch (Exception e) {
                 logger.error("交易对卖出错", e);
             }
