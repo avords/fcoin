@@ -369,7 +369,7 @@ public class FcoinUtils {
             }
 
             //买单 卖单
-            double price = Math.min(Math.min(ft * marketPrice, usdt), maxNum * marketPrice);
+            double price = Math.min(Math.min(ftBalance.getAvailable(), usdtBalance.getAvailable()), maxNum * marketPrice);
 
             BigDecimal ftAmount = getNum(price / marketPrice);
             tradeCount++;
@@ -489,7 +489,7 @@ public class FcoinUtils {
             }
 
             //买单 卖单
-            double price = Math.min(ft * marketPrice, usdt);
+            double price = Math.min(ftBalance.getAvailable(), usdtBalance.getAvailable());
 
             BigDecimal ftAmount = getNum(price / marketPrice);
 
