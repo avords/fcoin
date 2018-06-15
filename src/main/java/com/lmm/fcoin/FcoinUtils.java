@@ -47,6 +47,7 @@ public class FcoinUtils {
     private static final double maxNum;//单笔最大数量
     private static final double minUsdt;//最小美金
     private static final int pricePrecision;
+    private static final int numPrecision;
 
     private static final int initInterval;//初始化间隔
 
@@ -68,6 +69,7 @@ public class FcoinUtils {
 
         initInterval = Integer.valueOf(properties.getProperty("initInterval", "10"));
         pricePrecision = Integer.valueOf(properties.getProperty("pricePrecision", "2"));
+        numPrecision = Integer.valueOf(properties.getProperty("numPrecision", "2"));
     }
 
     public static BigDecimal getBigDecimal(double value, int scale) {
@@ -75,7 +77,7 @@ public class FcoinUtils {
     }
 
     public static BigDecimal getNum(double b) {
-        return getBigDecimal(b, 2);
+        return getBigDecimal(b, numPrecision);
     }
 
     public static BigDecimal getMarketPrice(double marketPrice) {
@@ -407,9 +409,9 @@ public class FcoinUtils {
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
-            if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
-                    || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
-                    || (ft < (minUsdt + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+            if ((usdt < (minUsdt + 1) && ft < ((minUsdt + 1) / marketPrice))
+                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
@@ -497,9 +499,9 @@ public class FcoinUtils {
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
-            if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
-                    || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
-                    || (ft < (minUsdt + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+            if ((usdt < (minUsdt + 1) && ft < ((minUsdt + 1) / marketPrice))
+                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
@@ -576,9 +578,9 @@ public class FcoinUtils {
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
-            if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
-                    || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
-                    || (ft < (minUsdt + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+            if ((usdt < (minUsdt + 1) && ft < ((minUsdt + 1) / marketPrice))
+                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
@@ -619,5 +621,9 @@ public class FcoinUtils {
 
             Thread.sleep(1000);
         }
+    }
+
+    public static void main(String[] args) throws Exception {
+        logger.info(getSymbols());
     }
 }
