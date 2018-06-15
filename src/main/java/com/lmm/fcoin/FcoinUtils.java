@@ -76,8 +76,8 @@ public class FcoinUtils {
         return new BigDecimal(value).setScale(scale, BigDecimal.ROUND_HALF_UP);
     }
 
-    public static BigDecimal getNum(double b) {
-        return getBigDecimal(b, numPrecision);
+    public static BigDecimal getNum(double b) {//为了尽量能够成交，数字向下精度
+        return new BigDecimal(b).setScale(numPrecision, BigDecimal.ROUND_DOWN);
     }
 
     public static BigDecimal getMarketPrice(double marketPrice) {
@@ -350,7 +350,7 @@ public class FcoinUtils {
         } else if (usdt < ftValue && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
             //卖ft
             double num = Math.min((ftValue - usdt) / 2, initUsdt);
-            BigDecimal b = getBigDecimal(num / marketPrice, 2);
+            BigDecimal b = getNum(num / marketPrice);
             try {
                 sell(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
             } catch (Exception e) {
