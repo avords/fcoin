@@ -48,6 +48,7 @@ public class FcoinUtils {
     private static final double minUsdt;//最小美金
     private static final int pricePrecision;
     private static final int numPrecision;
+    private static final double minLimitPriceOrderNum;
 
     private static final int initInterval;//初始化间隔
 
@@ -55,7 +56,7 @@ public class FcoinUtils {
         Properties properties = null;
         try {
             properties = PropertiesLoaderUtils.loadProperties(
-                    new ClassPathResource("app.properties", FcoinUtils.class.getClassLoader()));
+                    new ClassPathResource("app_ft.properties", FcoinUtils.class.getClassLoader()));
         } catch (IOException e) {
             logger.error("类初始化异常", e);
         }
@@ -70,6 +71,7 @@ public class FcoinUtils {
         initInterval = Integer.valueOf(properties.getProperty("initInterval", "10"));
         pricePrecision = Integer.valueOf(properties.getProperty("pricePrecision", "2"));
         numPrecision = Integer.valueOf(properties.getProperty("numPrecision", "2"));
+        minLimitPriceOrderNum = Double.valueOf(properties.getProperty("minLimitPriceOrderNum", "5"));
     }
 
     public static BigDecimal getBigDecimal(double value, int scale) {
@@ -182,7 +184,13 @@ public class FcoinUtils {
         HttpEntity<String> requestEntity = new HttpEntity<String>(param, headers);
         RestTemplate client = new RestTemplate();
         client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
-        ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
+        ResponseEntity<String> response;
+        try {
+            response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
+        } catch (Exception e) {
+            logger.error("买卖有异常", e);
+            throw new Exception(e);
+        }
         logger.info(response.getBody());
         if (StringUtils.isEmpty(response.getBody())) {
             throw new Exception("订单创建失败：" + type);
@@ -336,10 +344,14 @@ public class FcoinUtils {
     private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice, double initUsdt, String symbol, String type) throws Exception {
         //初始化小的
         double ftValue = ft * marketPrice;
+        double num = Math.min((Math.abs(usdt - ftValue) / 2), initUsdt);
+        BigDecimal b = getNum(num / marketPrice);//现价的数量都为ft的数量
+        if (b.doubleValue() - minLimitPriceOrderNum < 0) {
+            logger.info("小于最小限价数量");
+            return false;
+        }
         if (ftValue < usdt && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
             //买ft
-            double num = Math.min((usdt - ftValue) / 2, initUsdt);
-            BigDecimal b = getNum(num / marketPrice);//现价的数量都为ft的数量
             try {
                 buy(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
             } catch (Exception e) {
@@ -349,8 +361,6 @@ public class FcoinUtils {
 
         } else if (usdt < ftValue && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
             //卖ft
-            double num = Math.min((ftValue - usdt) / 2, initUsdt);
-            BigDecimal b = getNum(num / marketPrice);
             try {
                 sell(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
             } catch (Exception e) {
@@ -438,6 +448,10 @@ public class FcoinUtils {
             double price = Math.min(Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable()), maxNum * marketPrice);
 
             BigDecimal ftAmount = getNum(price / marketPrice);
+            if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
+                logger.info("小于最小限价数量");
+                break;
+            }
             tradeCount++;
             logger.info("=============================交易对开始=========================");
             try {
@@ -519,7 +533,10 @@ public class FcoinUtils {
             double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
             BigDecimal ftAmount = getNum(price / marketPrice);
-
+            if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
+                logger.info("小于最小限价数量");
+                break;
+            }
             logger.info("=============================交易对开始=========================");
 
             try {
@@ -604,7 +621,10 @@ public class FcoinUtils {
             double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
             BigDecimal ftAmount = getNum(price / marketPrice);
-
+            if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
+                logger.info("小于最小限价数量");
+                break;
+            }
             logger.info("=============================交易对开始=========================");
 
             try {
@@ -624,6 +644,6 @@ public class FcoinUtils {
     }
 
     public static void main(String[] args) throws Exception {
-        logger.info(getSymbols());
+        getSymbols();
     }
 }
