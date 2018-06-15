@@ -447,7 +447,7 @@ public class FcoinUtils {
             //买单 卖单
             double price = Math.min(Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable()), maxNum * marketPrice);
 
-            BigDecimal ftAmount = getNum(price / marketPrice);
+            BigDecimal ftAmount = getNum(price*0.99 / marketPrice);
             if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
                 logger.info("小于最小限价数量");
                 break;
@@ -532,7 +532,7 @@ public class FcoinUtils {
             //买单 卖单
             double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
-            BigDecimal ftAmount = getNum(price / marketPrice);
+            BigDecimal ftAmount = getNum(price*0.99 / marketPrice);//预留点来扣手续费
             if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
                 logger.info("小于最小限价数量");
                 break;
@@ -620,7 +620,7 @@ public class FcoinUtils {
             //买单 卖单
             double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
-            BigDecimal ftAmount = getNum(price / marketPrice);
+            BigDecimal ftAmount = getNum(price*0.99 / marketPrice);
             if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
                 logger.info("小于最小限价数量");
                 break;
