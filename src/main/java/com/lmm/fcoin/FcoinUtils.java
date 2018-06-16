@@ -23,6 +23,8 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -376,6 +378,24 @@ public class FcoinUtils {
     }
 
     /**
+     * 整点之前是否可以交易
+     * @return
+     */
+    public boolean isTrade() {
+        LocalDateTime localDateTime = LocalDateTime.now();
+
+        LocalDateTime localDateTimeInt =
+                LocalDateTime.of(localDateTime.getYear(), localDateTime.getMonth(), localDateTime.getDayOfMonth(), localDateTime.getHour() + 1, 0);
+
+        if (localDateTime.compareTo(localDateTimeInt) < 0
+                && Duration.between(localDateTime, localDateTimeInt).toMinutes() <= 10) {//只能进行买
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * 自买自卖，但是增加挂单超时取消功能
      *
      * @param symbol   交易对
@@ -416,6 +436,11 @@ public class FcoinUtils {
             }
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
+
+            if (!isTrade()) {//整点十分钟之内不能交易
+                break;
+            }
+
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
@@ -505,6 +530,7 @@ public class FcoinUtils {
 
             double ft = ftBalance.getBalance();
             double usdt = usdtBalance.getBalance();
+
             //判断是否有冻结的，如果冻结太多冻结就休眠，进行下次挖矿
             if (ftBalance.getFrozen() > 0.099 * ft || usdtBalance.getFrozen() > 0.099 * usdt) {
                 Thread.sleep(3000);
@@ -512,6 +538,11 @@ public class FcoinUtils {
             }
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
+
+            if (!isTrade()) {//整点十分钟之内不能交易
+                break;
+            }
+
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
@@ -541,6 +572,7 @@ public class FcoinUtils {
                 logger.info("小于最小限价数量");
                 break;
             }
+
             logger.info("=============================交易对开始=========================");
 
             try {
@@ -596,6 +628,11 @@ public class FcoinUtils {
             }
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
+
+            if (!isTrade()) {//整点十分钟之内不能交易
+                break;
+            }
+            
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
