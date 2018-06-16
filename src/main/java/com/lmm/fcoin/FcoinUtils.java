@@ -645,11 +645,11 @@ public class FcoinUtils {
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
-            if ("ftusdt".equals(symbol) && !isTrade()) {//整点十分钟之内不能交易
+            /*if ("ftusdt".equals(symbol) && !isTrade()) {//整点十分钟之内不能交易，波段可以交易的，也不需要取消订单
                 cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
                 Thread.sleep(5000);
                 break;
-            }
+            }*/
 
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
