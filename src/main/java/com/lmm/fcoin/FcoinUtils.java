@@ -429,7 +429,9 @@ public class FcoinUtils {
             //ft:usdt=1:0.6 平衡资金
             double ftValue = ft * marketPrice;
             double initUsdt = maxNum * initMultiple * marketPrice;
-            if ((ftValue < initUsdt || usdt < initUsdt) && tradeCount % initInterval == 0) {
+            if ((ftValue < initUsdt || usdt < initUsdt)
+                    && tradeCount % initInterval == 0
+                    && !(ftBalance.getFrozen() > 0 || usdtBalance.getFrozen() > 0)) {
                 //需要去初始化了
                 try {
                     if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
@@ -447,7 +449,7 @@ public class FcoinUtils {
             //买单 卖单
             double price = Math.min(Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable()), maxNum * marketPrice);
 
-            BigDecimal ftAmount = getNum(price*0.99 / marketPrice);
+            BigDecimal ftAmount = getNum(price * 0.99 / marketPrice);
             if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
                 logger.info("小于最小限价数量");
                 break;
@@ -524,15 +526,17 @@ public class FcoinUtils {
             double initUsdt = maxNum * initMultiple * marketPrice;
 
             //初始化
-            if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
-                logger.info("================有进行初始化均衡操作=================");
-                continue;
+            if (!(ftBalance.getFrozen() > 0 || usdtBalance.getFrozen() > 0)) {
+                if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
+                    logger.info("================有进行初始化均衡操作=================");
+                    continue;
+                }
             }
 
             //买单 卖单
             double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
-            BigDecimal ftAmount = getNum(price*0.99 / marketPrice);//预留点来扣手续费
+            BigDecimal ftAmount = getNum(price * 0.99 / marketPrice);//预留点来扣手续费
             if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
                 logger.info("小于最小限价数量");
                 break;
@@ -612,15 +616,17 @@ public class FcoinUtils {
             double initUsdt = maxNum * initMultiple * marketPrice;
 
             //初始化
-            if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
-                logger.info("================有进行初始化均衡操作=================");
-                continue;
+            if(!(ftBalance.getFrozen() > 0 || usdtBalance.getFrozen() > 0)) {
+                if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
+                    logger.info("================有进行初始化均衡操作=================");
+                    continue;
+                }
             }
 
             //买单 卖单
             double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
-            BigDecimal ftAmount = getNum(price*0.99 / marketPrice);
+            BigDecimal ftAmount = getNum(price * 0.99 / marketPrice);
             if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
                 logger.info("小于最小限价数量");
                 break;
@@ -644,6 +650,14 @@ public class FcoinUtils {
     }
 
     public static void main(String[] args) throws Exception {
-        getSymbols();
+        double b = Double.valueOf("0.000000000000000001");
+        if(b==0){
+            logger.info("我等于0");
+        }
+        if(b>0){
+            logger.info("我大于0");
+        }else{
+            logger.info("我小于0");
+        }
     }
 }
