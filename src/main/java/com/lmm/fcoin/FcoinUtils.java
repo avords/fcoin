@@ -616,7 +616,7 @@ public class FcoinUtils {
             double initUsdt = maxNum * initMultiple * marketPrice;
 
             //初始化
-            if(!(ftBalance.getFrozen() > 0 || usdtBalance.getFrozen() > 0)) {
+            if (!(ftBalance.getFrozen() > 0 || usdtBalance.getFrozen() > 0)) {
                 if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
                     logger.info("================有进行初始化均衡操作=================");
                     continue;
@@ -651,12 +651,12 @@ public class FcoinUtils {
 
     public static void main(String[] args) throws Exception {
         double b = Double.valueOf("0.000000000000000001");
-        if(b==0){
+        if (b == 0) {
             logger.info("我等于0");
         }
-        if(b>0){
+        if (b > 0) {
             logger.info("我大于0");
-        }else{
+        } else {
             logger.info("我小于0");
         }
     }
