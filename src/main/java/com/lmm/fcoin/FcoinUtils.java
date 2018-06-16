@@ -58,7 +58,7 @@ public class FcoinUtils {
         Properties properties = null;
         try {
             properties = PropertiesLoaderUtils.loadProperties(
-                    new ClassPathResource("app_ft.properties", FcoinUtils.class.getClassLoader()));
+                    new ClassPathResource("app_icx.properties", FcoinUtils.class.getClassLoader()));
         } catch (IOException e) {
             logger.error("类初始化异常", e);
         }
@@ -552,7 +552,7 @@ public class FcoinUtils {
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
-            if (!isTrade()) {//整点十分钟之内不能交易
+            if ("ftusdt".equals(symbol)&&!isTrade()) {//整点十分钟之内不能交易
                 cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
                 break;
             }
@@ -561,8 +561,8 @@ public class FcoinUtils {
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
             if ((usdt < (minUsdt + 1) && ft < ((minUsdt + 1) / marketPrice))
-                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < 11)
-                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < minUsdt/5)
+                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < minUsdt/5)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
@@ -601,7 +601,7 @@ public class FcoinUtils {
             }
             logger.info("=============================交易对结束=========================");
 
-            Thread.sleep(1000);
+            Thread.sleep(100);
         }
     }
 
@@ -702,14 +702,6 @@ public class FcoinUtils {
     }
 
     public static void main(String[] args) throws Exception {
-        double b = Double.valueOf("0.000000000000000001");
-        if (b == 0) {
-            logger.info("我等于0");
-        }
-        if (b > 0) {
-            logger.info("我大于0");
-        } else {
-            logger.info("我小于0");
-        }
+        getSymbols();
     }
 }
