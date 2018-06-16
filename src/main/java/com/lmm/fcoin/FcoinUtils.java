@@ -195,7 +195,7 @@ public class FcoinUtils {
         if (StringUtils.isEmpty(response.getBody())) {
             throw new Exception("订单创建失败：" + type);
         }
-        if (StringUtils.isEmpty(response.getBody())) {
+        if (!StringUtils.isEmpty(response.getBody())) {
             String data = JSON.parseObject(response.getBody()).getString("data");
             if (StringUtils.isEmpty(data)) {
                 throw new Exception("订单创建失败：" + type);
