@@ -58,7 +58,7 @@ public class FcoinUtils {
         Properties properties = null;
         try {
             properties = PropertiesLoaderUtils.loadProperties(
-                    new ClassPathResource("app_icx.properties", FcoinUtils.class.getClassLoader()));
+                    new ClassPathResource("app_ft.properties", FcoinUtils.class.getClassLoader()));
         } catch (IOException e) {
             logger.error("类初始化异常", e);
         }
@@ -449,8 +449,9 @@ public class FcoinUtils {
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
-            if (!isTrade()) {//整点十分钟之内不能交易
+            if ("ftusdt".equals(symbol) && !isTrade()) {//整点十分钟之内不能交易
                 cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
+                Thread.sleep(5000);
                 break;
             }
 
@@ -552,8 +553,9 @@ public class FcoinUtils {
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
-            if ("ftusdt".equals(symbol)&&!isTrade()) {//整点十分钟之内不能交易
+            if ("ftusdt".equals(symbol) && !isTrade()) {//整点十分钟之内不能交易
                 cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
+                Thread.sleep(5000);
                 break;
             }
 
@@ -561,8 +563,8 @@ public class FcoinUtils {
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
             if ((usdt < (minUsdt + 1) && ft < ((minUsdt + 1) / marketPrice))
-                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < minUsdt/5)
-                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < minUsdt/5)) {
+                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < minUsdt / 5)
+                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < minUsdt / 5)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
@@ -601,7 +603,7 @@ public class FcoinUtils {
             }
             logger.info("=============================交易对结束=========================");
 
-            Thread.sleep(100);
+            Thread.sleep(1000);
         }
     }
 
@@ -643,8 +645,9 @@ public class FcoinUtils {
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
-            if (!isTrade()) {//整点十分钟之内不能交易
+            if ("ftusdt".equals(symbol) && !isTrade()) {//整点十分钟之内不能交易
                 cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
+                Thread.sleep(5000);
                 break;
             }
 
@@ -660,7 +663,7 @@ public class FcoinUtils {
 
             //在波段内才能交易
             double avgPrice = priceInfo.get("24HPrice");
-            if (Math.abs(marketPrice - avgPrice) > avgPrice * 0.01) {
+            if (Math.abs(marketPrice - avgPrice) > avgPrice * increment / 5) {
                 Thread.sleep(3000);
                 continue;
             }
@@ -686,12 +689,12 @@ public class FcoinUtils {
             logger.info("=============================交易对开始=========================");
 
             try {
-                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice * (1 - increment)));
+                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(avgPrice * (1 - increment)));
             } catch (Exception e) {
                 logger.error("交易对买出错", e);
             }
             try {
-                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice * (1 + increment)));
+                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(avgPrice * (1 + increment)));
             } catch (Exception e) {
                 logger.error("交易对卖出错", e);
             }

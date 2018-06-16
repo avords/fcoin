@@ -17,8 +17,8 @@ public class FcoinJob implements StatefulJob {
             //fcoinUtils.ftusdt1("ftusdt", "ft", "usdt",0);
             //fcoinUtils.ftusdt2("ftusdt", "ft", "usdt",0.05);
             //fcoinUtils.ftusdt1("btcusdt","btc","usdt",0);
-            //fcoinUtils.ftusdt1("ftusdt","ft","usdt",0);
-            fcoinUtils.ftusdt1("icxeth","icx","eth",0);
+            fcoinUtils.ftusdt2("ftusdt","ft","usdt",0.01);
+            //fcoinUtils.ftusdt1("icxeth","icx","eth",0);
         }catch (Exception e){
             logger.info("==========FcoinJob发生异常============");
             throw new JobExecutionException("ftustd 方法体执行异常");
