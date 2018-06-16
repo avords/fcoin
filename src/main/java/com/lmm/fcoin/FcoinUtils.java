@@ -260,7 +260,7 @@ public class FcoinUtils {
         return response.getBody();
     }
 
-    public List<String> getOrdes(String symbol, String states, String after, String limit) throws Exception {
+    public List<String> getOrdes(String symbol, String states, String after, String limit, String side) throws Exception {
         String url = "https://api.fcoin.com/v2/orders?after=" + after + "&limit=" + limit + "&states=" + states + "&symbol=" + symbol;
         Long timeStamp = System.currentTimeMillis();
         MultiValueMap<String, String> headers = new HttpHeaders();
@@ -277,12 +277,23 @@ public class FcoinUtils {
         if (jsonArray == null || jsonArray.size() == 0) {
             return new ArrayList<>();
         }
-        return jsonArray.stream().map(jsonObject -> ((JSONObject) jsonObject).getString("id")).collect(Collectors.toList());
+        if (StringUtils.isEmpty(side)) {
+            return jsonArray.stream().map(jsonObject -> ((JSONObject) jsonObject).getString("id")).collect(Collectors.toList());
+        } else {
+            return jsonArray.stream().filter(jsonObj -> side.equals(((JSONObject) jsonObj).getString("side"))).map(jsonObject -> ((JSONObject) jsonObject).getString("id")).collect(Collectors.toList());
+        }
     }
 
     public List<String> getNotTradeOrders(String symbol, String after, String limit) throws Exception {
-        List<String> list1 = getOrdes(symbol, "submitted", after, limit);
-        List<String> list2 = getOrdes(symbol, "partial_filled", after, limit);
+        List<String> list1 = getOrdes(symbol, "submitted", after, limit, null);
+        List<String> list2 = getOrdes(symbol, "partial_filled", after, limit, null);
+        list1.addAll(list2);
+        return list1;
+    }
+
+    public List<String> getNotTradeSellOrders(String symbol, String after, String limit) throws Exception {
+        List<String> list1 = getOrdes(symbol, "submitted", after, limit, "sell");
+        List<String> list2 = getOrdes(symbol, "partial_filled", after, limit, "sell");
         list1.addAll(list2);
         return list1;
     }
@@ -379,13 +390,14 @@ public class FcoinUtils {
 
     /**
      * 整点之前是否可以交易
+     *
      * @return
      */
     public boolean isTrade() {
         LocalDateTime localDateTime = LocalDateTime.now();
 
         LocalDateTime localDateTimeInt =
-                LocalDateTime.of(localDateTime.getYear(), localDateTime.getMonth(), localDateTime.getDayOfMonth(), localDateTime.getHour() + 1, 0);
+                LocalDateTime.of(localDateTime.getYear(), localDateTime.getMonth(), localDateTime.getDayOfMonth(), localDateTime.getHour() + 1, 1);
 
         if (localDateTime.compareTo(localDateTimeInt) < 0
                 && Duration.between(localDateTime, localDateTimeInt).toMinutes() <= 10) {//只能进行买
@@ -438,6 +450,7 @@ public class FcoinUtils {
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
             if (!isTrade()) {//整点十分钟之内不能交易
+                cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
                 break;
             }
 
@@ -540,6 +553,7 @@ public class FcoinUtils {
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
             if (!isTrade()) {//整点十分钟之内不能交易
+                cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
                 break;
             }
 
@@ -630,9 +644,10 @@ public class FcoinUtils {
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
 
             if (!isTrade()) {//整点十分钟之内不能交易
+                cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
                 break;
             }
-            
+
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
