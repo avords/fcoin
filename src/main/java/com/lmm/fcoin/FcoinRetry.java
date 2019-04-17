@@ -1,5 +1,7 @@
 package com.lmm.fcoin;
 
+import org.springframework.retry.RetryCallback;
+import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.retry.backoff.FixedBackOffPolicy;
 import org.springframework.retry.policy.SimpleRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
@@ -41,4 +43,28 @@ public class FcoinRetry {
 
         return retryTemplate;
     }
+
+    public static RetryTemplate getExponentialRetryTemplate(){
+
+        RetryTemplate retryTemplateOnce = new RetryTemplate();
+        ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
+        backOffPolicy.setInitialInterval(50);
+        backOffPolicy.setMaxInterval(1000);
+        retryTemplateOnce.setBackOffPolicy(backOffPolicy);
+        SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy();
+        retryPolicy.setMaxAttempts(5);
+        retryTemplateOnce.setRetryPolicy(retryPolicy);
+        
+        return retryTemplateOnce;
+    }
+
+    public static void main(String[] args) {
+        RetryTemplate retryTemplate = getExponentialRetryTemplate();
+        retryTemplate.execute((RetryCallback) retryContext -> {
+            System.out.println("我重试了");
+            throw new Exception("ee");
+        });
+    }
+    
+    
 }
