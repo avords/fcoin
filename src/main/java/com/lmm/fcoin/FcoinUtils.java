@@ -23,6 +23,8 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
@@ -47,6 +49,8 @@ public class FcoinUtils {
     private static final double maxNum;//单笔最大数量
     private static final double minUsdt;//最小美金
     private static final int pricePrecision;
+    private static final int numPrecision;
+    private static final double minLimitPriceOrderNum;
 
     private static final int initInterval;//初始化间隔
 
@@ -54,7 +58,7 @@ public class FcoinUtils {
         Properties properties = null;
         try {
             properties = PropertiesLoaderUtils.loadProperties(
-                    new ClassPathResource("app.properties", FcoinUtils.class.getClassLoader()));
+                    new ClassPathResource("app_ft.properties", FcoinUtils.class.getClassLoader()));
         } catch (IOException e) {
             logger.error("类初始化异常", e);
         }
@@ -68,14 +72,16 @@ public class FcoinUtils {
 
         initInterval = Integer.valueOf(properties.getProperty("initInterval", "10"));
         pricePrecision = Integer.valueOf(properties.getProperty("pricePrecision", "2"));
+        numPrecision = Integer.valueOf(properties.getProperty("numPrecision", "2"));
+        minLimitPriceOrderNum = Double.valueOf(properties.getProperty("minLimitPriceOrderNum", "5"));
     }
 
     public static BigDecimal getBigDecimal(double value, int scale) {
         return new BigDecimal(value).setScale(scale, BigDecimal.ROUND_HALF_UP);
     }
 
-    public static BigDecimal getNum(double b) {
-        return getBigDecimal(b, 2);
+    public static BigDecimal getNum(double b) {//为了尽量能够成交，数字向下精度
+        return new BigDecimal(b).setScale(numPrecision, BigDecimal.ROUND_DOWN);
     }
 
     public static BigDecimal getMarketPrice(double marketPrice) {
@@ -180,12 +186,18 @@ public class FcoinUtils {
         HttpEntity<String> requestEntity = new HttpEntity<String>(param, headers);
         RestTemplate client = new RestTemplate();
         client.getMessageConverters().set(1, new StringHttpMessageConverter(StandardCharsets.UTF_8));
-        ResponseEntity<String> response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
+        ResponseEntity<String> response;
+        try {
+            response = client.exchange(url, HttpMethod.POST, requestEntity, String.class);
+        } catch (Exception e) {
+            logger.error("买卖有异常", e);
+            throw new Exception(e);
+        }
         logger.info(response.getBody());
         if (StringUtils.isEmpty(response.getBody())) {
             throw new Exception("订单创建失败：" + type);
         }
-        if (StringUtils.isEmpty(response.getBody())) {
+        if (!StringUtils.isEmpty(response.getBody())) {
             String data = JSON.parseObject(response.getBody()).getString("data");
             if (StringUtils.isEmpty(data)) {
                 throw new Exception("订单创建失败：" + type);
@@ -248,7 +260,7 @@ public class FcoinUtils {
         return response.getBody();
     }
 
-    public List<String> getOrdes(String symbol, String states, String after, String limit) throws Exception {
+    public List<String> getOrdes(String symbol, String states, String after, String limit, String side) throws Exception {
         String url = "https://api.fcoin.com/v2/orders?after=" + after + "&limit=" + limit + "&states=" + states + "&symbol=" + symbol;
         Long timeStamp = System.currentTimeMillis();
         MultiValueMap<String, String> headers = new HttpHeaders();
@@ -265,12 +277,23 @@ public class FcoinUtils {
         if (jsonArray == null || jsonArray.size() == 0) {
             return new ArrayList<>();
         }
-        return jsonArray.stream().map(jsonObject -> ((JSONObject) jsonObject).getString("id")).collect(Collectors.toList());
+        if (StringUtils.isEmpty(side)) {
+            return jsonArray.stream().map(jsonObject -> ((JSONObject) jsonObject).getString("id")).collect(Collectors.toList());
+        } else {
+            return jsonArray.stream().filter(jsonObj -> side.equals(((JSONObject) jsonObj).getString("side"))).map(jsonObject -> ((JSONObject) jsonObject).getString("id")).collect(Collectors.toList());
+        }
     }
 
     public List<String> getNotTradeOrders(String symbol, String after, String limit) throws Exception {
-        List<String> list1 = getOrdes(symbol, "submitted", after, limit);
-        List<String> list2 = getOrdes(symbol, "partial_filled", after, limit);
+        List<String> list1 = getOrdes(symbol, "submitted", after, limit, null);
+        List<String> list2 = getOrdes(symbol, "partial_filled", after, limit, null);
+        list1.addAll(list2);
+        return list1;
+    }
+
+    public List<String> getNotTradeSellOrders(String symbol, String after, String limit) throws Exception {
+        List<String> list1 = getOrdes(symbol, "submitted", after, limit, "sell");
+        List<String> list2 = getOrdes(symbol, "partial_filled", after, limit, "sell");
         list1.addAll(list2);
         return list1;
     }
@@ -334,10 +357,14 @@ public class FcoinUtils {
     private boolean isHaveInitBuyAndSell(double ft, double usdt, double marketPrice, double initUsdt, String symbol, String type) throws Exception {
         //初始化小的
         double ftValue = ft * marketPrice;
+        double num = Math.min((Math.abs(usdt - ftValue) / 2), initUsdt);
+        BigDecimal b = getNum(num / marketPrice);//现价的数量都为ft的数量
+        if (b.doubleValue() - minLimitPriceOrderNum < 0) {
+            logger.info("小于最小限价数量");
+            return false;
+        }
         if (ftValue < usdt && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
             //买ft
-            double num = Math.min((usdt - ftValue) / 2, initUsdt);
-            BigDecimal b = getNum(num / marketPrice);//现价的数量都为ft的数量
             try {
                 buy(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
             } catch (Exception e) {
@@ -347,8 +374,6 @@ public class FcoinUtils {
 
         } else if (usdt < ftValue && Math.abs(ftValue - usdt) > 0.1 * (ftValue + usdt)) {
             //卖ft
-            double num = Math.min((ftValue - usdt) / 2, initUsdt);
-            BigDecimal b = getBigDecimal(num / marketPrice, 2);
             try {
                 sell(symbol, type, b, getMarketPrice(marketPrice));//此处不需要重试，让上次去判断余额后重新平衡
             } catch (Exception e) {
@@ -360,6 +385,25 @@ public class FcoinUtils {
         }
 
         Thread.sleep(3000);
+        return true;
+    }
+
+    /**
+     * 整点之前是否可以交易
+     *
+     * @return
+     */
+    public boolean isTrade() {
+        LocalDateTime localDateTime = LocalDateTime.now();
+
+        LocalDateTime localDateTimeInt =
+                LocalDateTime.of(localDateTime.getYear(), localDateTime.getMonth(), localDateTime.getDayOfMonth(), localDateTime.getHour() + 1, 1);
+
+        if (localDateTime.compareTo(localDateTimeInt) < 0
+                && Duration.between(localDateTime, localDateTimeInt).toMinutes() <= 10) {//只能进行买
+            return false;
+        }
+
         return true;
     }
 
@@ -404,12 +448,19 @@ public class FcoinUtils {
             }
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
+
+            if ("ftusdt".equals(symbol) && !isTrade()) {//整点十分钟之内不能交易
+                cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
+                Thread.sleep(5000);
+                break;
+            }
+
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
-            if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
-                    || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
-                    || (ft < (minUsdt + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+            if ((usdt < (minUsdt + 1) && ft < ((minUsdt + 1) / marketPrice))
+                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
@@ -417,7 +468,9 @@ public class FcoinUtils {
             //ft:usdt=1:0.6 平衡资金
             double ftValue = ft * marketPrice;
             double initUsdt = maxNum * initMultiple * marketPrice;
-            if ((ftValue < initUsdt || usdt < initUsdt) && tradeCount % initInterval == 0) {
+            if ((ftValue < initUsdt || usdt < initUsdt)
+                    && tradeCount % initInterval == 0
+                    && !(ftBalance.getFrozen() > 0 || usdtBalance.getFrozen() > 0)) {
                 //需要去初始化了
                 try {
                     if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
@@ -435,7 +488,11 @@ public class FcoinUtils {
             //买单 卖单
             double price = Math.min(Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable()), maxNum * marketPrice);
 
-            BigDecimal ftAmount = getNum(price / marketPrice);
+            BigDecimal ftAmount = getNum(price * 0.99 / marketPrice);
+            if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
+                logger.info("小于最小限价数量");
+                break;
+            }
             tradeCount++;
             logger.info("=============================交易对开始=========================");
             try {
@@ -487,6 +544,7 @@ public class FcoinUtils {
 
             double ft = ftBalance.getBalance();
             double usdt = usdtBalance.getBalance();
+
             //判断是否有冻结的，如果冻结太多冻结就休眠，进行下次挖矿
             if (ftBalance.getFrozen() > 0.099 * ft || usdtBalance.getFrozen() > 0.099 * usdt) {
                 Thread.sleep(3000);
@@ -494,12 +552,19 @@ public class FcoinUtils {
             }
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
+
+            if ("ftusdt".equals(symbol) && !isTrade()) {//整点十分钟之内不能交易
+                cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
+                Thread.sleep(5000);
+                break;
+            }
+
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
-            if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
-                    || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
-                    || (ft < (minUsdt + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+            if ((usdt < (minUsdt + 1) && ft < ((minUsdt + 1) / marketPrice))
+                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < minUsdt / 5)
+                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < minUsdt / 5)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
@@ -508,15 +573,21 @@ public class FcoinUtils {
             double initUsdt = maxNum * initMultiple * marketPrice;
 
             //初始化
-            if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
-                logger.info("================有进行初始化均衡操作=================");
-                continue;
+            if (!(ftBalance.getFrozen() > 0 || usdtBalance.getFrozen() > 0)) {
+                if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
+                    logger.info("================有进行初始化均衡操作=================");
+                    continue;
+                }
             }
 
             //买单 卖单
             double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
-            BigDecimal ftAmount = getNum(price / marketPrice);
+            BigDecimal ftAmount = getNum(price * 0.99 / marketPrice);//预留点来扣手续费
+            if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
+                logger.info("小于最小限价数量");
+                break;
+            }
 
             logger.info("=============================交易对开始=========================");
 
@@ -573,19 +644,26 @@ public class FcoinUtils {
             }
 
             logger.info("===============balance: usdt:{},ft:{}========================", usdt, ft);
+
+            /*if ("ftusdt".equals(symbol) && !isTrade()) {//整点十分钟之内不能交易，波段可以交易的，也不需要取消订单
+                cancelOrders(getNotTradeSellOrders(symbol, "0", "100"));
+                Thread.sleep(5000);
+                break;
+            }*/
+
             Map<String, Double> priceInfo = getPriceInfo(symbol);
             Double marketPrice = priceInfo.get("marketPrice");
             //usdt小于51并且ft的价值小于51
-            if ((usdt < minUsdt + 1 && ft < (minUsdt + 1 / marketPrice))
-                    || (usdt < minUsdt + 1 && Math.abs(ft * marketPrice - usdt) < 11)
-                    || (ft < (minUsdt + 1 / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
+            if ((usdt < (minUsdt + 1) && ft < ((minUsdt + 1) / marketPrice))
+                    || (usdt < (minUsdt + 1) && Math.abs(ft * marketPrice - usdt) < 11)
+                    || (ft < ((minUsdt + 1) / marketPrice) && Math.abs(ft * marketPrice - usdt) < 11)) {
                 logger.info("跳出循环，ustd:{}, marketPrice:{}", usdt, marketPrice);
                 break;
             }
 
             //在波段内才能交易
             double avgPrice = priceInfo.get("24HPrice");
-            if (Math.abs(marketPrice - avgPrice) > avgPrice * 0.01) {
+            if (Math.abs(marketPrice - avgPrice) > avgPrice * increment / 5) {
                 Thread.sleep(3000);
                 continue;
             }
@@ -593,25 +671,30 @@ public class FcoinUtils {
             double initUsdt = maxNum * initMultiple * marketPrice;
 
             //初始化
-            if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
-                logger.info("================有进行初始化均衡操作=================");
-                continue;
+            if (!(ftBalance.getFrozen() > 0 || usdtBalance.getFrozen() > 0)) {
+                if (isHaveInitBuyAndSell(ft, usdt, marketPrice, initUsdt, symbol, "limit")) {
+                    logger.info("================有进行初始化均衡操作=================");
+                    continue;
+                }
             }
 
             //买单 卖单
             double price = Math.min(ftBalance.getAvailable() * marketPrice, usdtBalance.getAvailable());
 
-            BigDecimal ftAmount = getNum(price / marketPrice);
-
+            BigDecimal ftAmount = getNum(price * 0.99 / marketPrice);
+            if (ftAmount.doubleValue() - minLimitPriceOrderNum < 0) {
+                logger.info("小于最小限价数量");
+                break;
+            }
             logger.info("=============================交易对开始=========================");
 
             try {
-                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice * (1 - increment)));
+                buyNotLimit(symbol, "limit", ftAmount, getMarketPrice(avgPrice * (1 - increment)));
             } catch (Exception e) {
                 logger.error("交易对买出错", e);
             }
             try {
-                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(marketPrice * (1 + increment)));
+                sellNotLimit(symbol, "limit", ftAmount, getMarketPrice(avgPrice * (1 + increment)));
             } catch (Exception e) {
                 logger.error("交易对卖出错", e);
             }
@@ -619,5 +702,9 @@ public class FcoinUtils {
 
             Thread.sleep(1000);
         }
+    }
+
+    public static void main(String[] args) throws Exception {
+        getSymbols();
     }
 }
